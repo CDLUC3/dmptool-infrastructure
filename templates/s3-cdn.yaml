@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'S3 bucket to store logs (e.g. access logs for other S3 buckets)'
+
+Parameters:
+  S3LogBucket:
+    Type: 'String'
+
+Resources:
+  # S3 Bucket that stores assets for the DMP Tool UI (CDN)
+  S3CloudFrontBucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: 'Retain'
+    Properties:
+      BucketName: !Ref AWS::StackName
+      AccessControl: 'Private'
+      VersioningConfiguration:
+        Status: 'Enabled'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LoggingConfiguration:
+        DestinationBucketName: !Ref S3LogBucket
+        LogFilePrefix: 'cdn-access'
+      VersioningConfiguration:
+        Status: 'Enabled'
+
+Outputs:
+  S3BucketID:
+    Value: !Ref S3CloudFrontBucket
+
+  S3BucketURI:
+    Value: !Sub "s3://${S3CloudFrontBucket}"
+
+  S3BucketARN:
+    Value: !GetAtt S3CloudFrontBucket.Arn

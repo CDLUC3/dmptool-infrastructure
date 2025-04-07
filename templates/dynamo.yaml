@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'DynamoDB that backs the API dmp-hub-sam'
+
+Parameters:
+  Env:
+    Type: 'String'
+    Default: 'dev'
+
+  DynamoTableClass:
+    Type: 'String'
+    Default: 'STANDARD'
+    AllowedValues:
+      - 'STANDARD'
+      - 'STANDARD_INFREQUENT_ACCESS'
+
+  DynamoEnableContributorInsights:
+    Type: 'String'
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+
+  DynamoEnablePointInTimeRecovery:
+    Type: 'String'
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+
+  DynamoBillingMode:
+    Type: 'String'
+    Default: 'PROVISIONED'
+    AllowedValues:
+      - 'PROVISIONED'
+      - 'PAY_PER_REQUEST'
+
+  DynamoReadCapacityUnits:
+    Type: 'Number'
+    Default: 10
+
+  DynamoWriteCapacityUnits:
+    Type: 'Number'
+    Default: 10
+
+  ProvisionedCapacity:
+    !Not [!Equals [!Ref DynamoBillingMode, 'PAY_PER_REQUEST']]
+
+Resources:
+  # ----------------------------------------------
+  # DynamoDB polymorphic table for DMPs
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html
+  # ----------------------------------------------
+  DynamoTable:
+    Type: 'AWS::DynamoDB::Table'
+    DeletionPolicy: 'Retain'
+    Properties:
+      TableName: !Ref AWS::StackName
+
+      # The base table's Partition key and Sort Key define both the DMP ID and version
+      # There are 3 potential variants of these keys:
+      # PK - PROVENANCE#dmptool,      SK - PROFILE                       <--- Provenance info
+      # PK - PROVENANCE#dmptool,      SK - DMPS                          <--- Array of DMP PKs for the Provenance
+      # PK - DMP#doi:10.48321/D1M30K, SK - VERSION#latest                <--- Latest version
+      # PK - DMP#doi:10.48321/D1M30K, SK - VERSION#2022-02-18T12:30:25Z  <--- Historical version
+      # PK - PERSON#[orcid],          SK - DMPS                          <--- Array of DMP PKs for the Person
+      # PK - AFFILIATION#[id],        SK - DMPS                          <--- Array of DMP PKs for the Affiliation / Funder
+      # PK - RELATED#[:id],           SK - DMPS                          <--- Array of DMP PKs for the Related Identifier / Grant
+
+      KeySchema:
+        - AttributeName: 'PK'
+          KeyType: 'HASH'
+        - AttributeName: 'SK'
+          KeyType: 'RANGE'
+
+      AttributeDefinitions:
+        # DMPHub attribute that stores the provenance/DMP id (see above)
+        - AttributeName: 'PK'
+          AttributeType: 'S'
+        # DMPHub attribute that stores the provenance profile or the DMP version (see above)
+        - AttributeName: 'SK'
+          AttributeType: 'S'
+
+      StreamSpecification:
+        StreamViewType: 'NEW_IMAGE'
+
+      BillingMode: !Ref DynamoBillingMode
+      TableClass: !Ref DynamoTableClass
+      ProvisionedThroughput: !If
+        - ProvisionedCapacity
+        - ReadCapacityUnits: !Ref DynamoReadCapacityUnits
+          WriteCapacityUnits: !Ref DynamoWriteCapacityUnits
+        - !Ref AWS::NoValue
+      ContributorInsightsSpecification:
+        Enabled: !Ref DynamoEnableContributorInsights
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: !Ref DynamoEnablePointInTimeRecovery
+
+Outputs:
+  DynamoTableName:
+    Value: !Select [1, !Split ['/', !GetAtt DynamoTable.Arn]]
+
+  DynamoTableStreamArn:
+    Value: !GetAtt DynamoTable.StreamArn
+    Export:
+      Name: !Sub '${Env}-DynamoTableStreamArn'
+
+  TypeaheadTableStreamArn:
+    Value: !GetAtt TypeaheadTable.StreamArn
+    Export:
+      Name: !Sub '${Env}-TypeaheadTableStreamArn'
+
+  DynamoTableId:
+    Value: !Ref DynamoTable
+
+  DynamoTableArn:
+    Value: !GetAtt DynamoTable.Arn
+    Export:
+      Name: !Sub '${Env}-DynamoTableArn'
+
+  TypeaheadTableArn:
+    Value: !GetAtt TypeaheadTable.Arn
+    Export:
+      Name: !Sub '${Env}-TypeaheadTableArn'

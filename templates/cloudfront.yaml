@@ -1,0 +1,252 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'Cloudfront CDN for the DMP Tool'
+
+Parameters:
+  Domain:
+    Type: 'String'
+
+  HostedZoneId:
+    Type: 'String'
+
+  S3LogBucketId:
+    Type: 'String'
+
+  S3CloudFrontBucketId:
+    Type: 'String'
+
+  S3CloudFrontBucketArn:
+    Type: 'String'
+
+  CertificateArn:
+    Type: 'String'
+
+  CacheDefaultTtlSeconds:
+    Type: 'Number'
+    Default: 7200 # 2 hours
+
+  CacheMinTtlSeconds:
+    Type: 'Number'
+    Default: 60 # 1 minute
+
+  CacheMaxTtlSeconds:
+    Type: 'Number'
+    Default: 86400 # 1 day
+
+Resources:
+  # --------------------------------------------------------------------------
+  # SSL Certs - CloudFront requires one in the global region so it needs its own :/
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-certificate.html
+  # --------------------------------------------------------------------------
+  Certificate:
+    Type: 'AWS::CertificateManager::Certificate'
+    Properties:
+      DomainName: !Sub "*.${Domain}"
+      DomainValidationOptions:
+        - DomainName: !Sub "*.${Domain}"
+          HostedZoneId: !Ref HostedZoneId
+      ValidationMethod: 'DNS'
+      SubjectAlternativeNames:
+        - !Ref Domain
+
+  # -----------------------------------------------------------
+  # Web Application Firewall (WAF) - CloudFront requires one in the global region so it needs its own :/
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_WAFv2.html
+  # -----------------------------------------------------------
+  WafGlobal:
+    Type: 'AWS::WAFv2::WebACL'
+    Properties:
+      Name: !Ref AWS::StackName
+      DefaultAction:
+        Allow: {}
+      Scope: 'CLOUDFRONT'
+      VisibilityConfig:
+        SampledRequestsEnabled: 'true'
+        CloudWatchMetricsEnabled: 'true'
+        MetricName: !Sub '${AWS::StackName}-waf-cdn-metric'
+      Rules:
+        - Name: 'AWS-AWSManagedRulesAmazonIpReputationList'
+          Priority: 0
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: 'AWS-AWSManagedRulesAmazonIpReputationList'
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: 'AWS'
+              Name: 'AWSManagedRulesAmazonIpReputationList'
+              ExcludedRules: []
+        - Name: 'AWS-AWSManagedRulesCommonRuleSet'
+          Priority: 1
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: 'AWS-AWSManagedRulesCommonRuleSet'
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: 'AWS'
+              Name: 'AWSManagedRulesCommonRuleSet'
+              ExcludedRules: []
+        - Name: 'AWS-AWSManagedRulesKnownBadInputsRuleSet'
+          Priority: 2
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: 'AWS-AWSManagedRulesKnownBadInputsRuleSet'
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: 'AWS'
+              Name: 'AWSManagedRulesKnownBadInputsRuleSet'
+              ExcludedRules: []
+
+  # ---------------------------------------------------------------------
+  # CloudFront Distribution that serves as a CDN for the DMP Tool
+  # See:  https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_CloudFront.html
+  # ---------------------------------------------------------------------
+  CloudfrontCachePolicy:
+    Type: 'AWS::CloudFront::CachePolicy'
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub "${AWS::StackName}-CachePolicy"
+        Comment: !Sub "${AWS::StackName} CDN cache policy"
+        DefaultTTL: !Ref CacheDefaultTtlSeconds
+        MaxTTL: !Ref CacheMaxTtlSeconds
+        MinTTL: !Ref CacheMinTtlSeconds
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: 'none'
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig:
+            HeaderBehavior: 'none'
+          QueryStringsConfig:
+            QueryStringBehavior: 'none'
+
+  # TODO: Set this up to pass specific headers through
+  # CloudfrontOriginRequestPolicy:
+
+  # Default security headers for the CloudFront distribution
+  #   See: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-response-headers-policies.html#managed-response-headers-policies-security
+  #
+  # Default ID: 67f7725c-6f97-4210-82d7-5512b31e9d03
+
+  # ----------------------------------------------------
+  # CloudFront Function that allow us to access the root object in subdirectories
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-function.html
+  # ----------------------------------------------------
+  CloudfrontOrginAccessControl:
+    Type: 'AWS::CloudFront::OriginAccessControl'
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${AWS::StackName}-OAC"
+        Description: !Sub "${AWS::StackName} S3 Origin Access Control"
+        OriginAccessControlOriginType: 's3'
+        SigningBehavior: 'always'
+        SigningProtocol: 'sigv4'
+
+  CloudfrontDistribution:
+    Type: 'AWS::CloudFront::Distribution'
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Ref Domain
+
+        Comment: !Sub "${AWS::StackName} CDN"
+        Enabled: 'true'
+        Staging: 'false'
+
+        # DMP Tool system maintenance page
+        DefaultRootObject: 'maintenance.html'
+
+        Origins:
+          - DomainName: !Sub "${S3CloudFrontBucketId}.s3.amazonaws.com"
+            Id: !Sub "${AWS::StackName}-CDNS3Origin"
+            OriginAccessControlId: !Ref CloudfrontOrginAccessControl
+            S3OriginConfig:
+              OriginAccessIdentity: !Ref AWS::NoValue
+
+        WebACLId: !GetAtt WafGlobal.Arn
+
+        ViewerCertificate:
+          AcmCertificateArn: !Ref Certificate
+          MinimumProtocolVersion: 'TLSv1.2_2018'
+          SslSupportMethod: 'sni-only'
+
+        Logging:
+          IncludeCookies: 'false'
+          Bucket: !Sub "${S3LogBucketId}.s3.amazonaws.com"
+          Prefix: 'cloudfront'
+
+        DefaultCacheBehavior:
+          AllowedMethods:
+          - 'GET'
+          - 'HEAD'
+          - 'OPTIONS'
+          TargetOriginId: !Sub "${AWS::StackName}-CDNS3Origin"
+          ForwardedValues:
+            QueryString: 'false'
+            Cookies:
+              Forward: 'none'
+          ViewerProtocolPolicy: 'redirect-to-https'
+
+        # Using Price Class ALL to support our large South American user base
+        #   See: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PriceClass.html
+        PriceClass: 'PriceClass_All'
+
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: 'none'
+
+  # ----------------------------------------------------
+  # Managed IAM Policy for allowing CloudFront Distribution to access our S3 Bucket
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html
+  # ----------------------------------------------------
+  CloudfrontS3BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    DependsOn:
+      - CloudfrontDistribution
+    Properties:
+      Bucket: !Ref S3CloudFrontBucketId
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Sid: 'AllowCloudFrontServicePrincipalReadOnly'
+          Effect: 'Allow'
+          Principal:
+            Service: 'cloudfront.amazonaws.com'
+          Action: 's3:GetObject'
+          Resource: !Sub "${S3CloudFrontBucketArn}/*"
+          Condition:
+            StringEquals:
+              "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudfrontDistribution}"
+
+Outputs:
+  CloudfrontCertificateArn:
+    Value: !Ref Certificate
+
+  CloudfrontWafId:
+    Value: !GetAtt WafGlobal.Id
+
+  CloudfrontWafArn:
+    Value: !GetAtt WafGlobal.Arn
+
+  CloudfrontDistributionId:
+    Value: !Ref CloudfrontDistribution
+
+  CloudfrontDistributionDomainName:
+    Value: !GetAtt CloudfrontDistribution.DomainName
+
+  CloudfrontOriginAccessControlId:
+    Value: !GetAtt CloudfrontOrginAccessControl.Id
+
+  CloudfrontCachePolicyId:
+    Value: !Ref CloudfrontCachePolicy
+
+  CloudfrontS3PolicyArn:
+    Value: !Ref CloudfrontS3BucketPolicy
