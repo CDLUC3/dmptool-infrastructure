@@ -95,10 +95,11 @@ create a unique name for the resource. It does this in the following way:
 ### Tags
 If you define `stack_tags` in your `config.yaml` file, Sceptre will automatically apply them to any resource that allows it.
 
-### Creating or Updating resources
+### Creating, Updating or Deleting AWS Resources
 
+To create or update stacks simply run `sceptre launch path/to/resource-config.yaml` where `path/to/resource-config.yaml` is the location of the Sceptre config file you want to create or update. Sceptre will handle creating and updating any related resources.
 
-### Creating new stacks
+To delete a stack run `sceptre delete path/to/resource-config.yaml` where `path/to/resource-config.yaml` is the location of the Sceptre config file you want to create or update. Sceptre will delete any related stacks for you. For example if you delete the S3 bucket that acts as the origin for the CloudFront distribution, Sceptre will delete the CloudFront distribution, its web application firewall (WAF) and Certificate.
 
 ## Building a new environment
 
@@ -106,7 +107,7 @@ This repository uses [Sceptre](https://docs.sceptre-project.org/3.2.0/) to orche
 
 For instructions on installing and setting up the system, please refer to [our installation wiki](https://github.com/CDLUC3/dmp-hub-cfn/wiki/Installation,-Updating-and-Deleting-AWS-resources)
 
-### SSM variable setup
+### SSM variable setup (WIP)
 
 You need to initialize the following global variables in SSM:
 - `aws ssm put-parameter --name /uc3/dmp/HostedZoneId --value [HOSTED_ZONE_ID] --type String`
@@ -117,7 +118,7 @@ You need to initialize the following env specific variables in SSM:
 - `aws ssm put-parameter --name /uc3/dmp/tool/[ENV]/DbPassword --value [PASSWORD] --type SecureString --overwrite`
 - `aws ssm put-parameter --name /uc3/dmp/tool/[ENV]/DefaultAffiliationId --value [ROR ID] --type String --overwrite`
 
-### Sceptre
+### Sceptre (WIP)
 
 - Create the Codestar Connection to GitHub
   - Run the Sceptre script to create the resource: `sceptre launch codestar-connection.yaml`
@@ -130,6 +131,8 @@ You need to initialize the following env specific variables in SSM:
 - route53
 - ecs-cluster
 
-## Docs
+## Documentation
+
+Additional documentation can be found in the `docs/` directory.
 
 - Files in the `*.epgz` were built using the [Pencil Project](https://pencil.evolus.vn). The corresponding `*.png` versions of the files were exported from that tool.
