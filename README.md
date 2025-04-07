@@ -103,20 +103,18 @@ To delete a stack run `sceptre delete path/to/resource-config.yaml` where `path/
 
 ## Building a new environment
 
-This repository uses [Sceptre](https://docs.sceptre-project.org/3.2.0/) to orchestrate the creation of the entire system. See below for notes about Sceptre if this is your first time using this technology.
-
-For instructions on installing and setting up the system, please refer to [our installation wiki](https://github.com/CDLUC3/dmp-hub-cfn/wiki/Installation,-Updating-and-Deleting-AWS-resources)
+This repository uses [Sceptre](https://docs.sceptre-project.org/3.2.0/) to orchestrate the creation of the entire system. See above for notes about Sceptre if this is your first time using this technology.
 
 ### SSM variable setup (WIP)
 
 You need to initialize the following global variables in SSM:
 - `aws ssm put-parameter --name /uc3/dmp/HostedZoneId --value [HOSTED_ZONE_ID] --type String`
 
-Note we explicitly do NOT use the "overwrite" argument for global variables to ensure we do not accidentally overwrite values that may have already been initialized.
+Note we explicitly do NOT use the "overwrite" argument for global variables because they may be used by other services. By NOT overwiting them, we ensure that they are not accidentally overwritten and impact other systems.
 
-You need to initialize the following env specific variables in SSM:
-- `aws ssm put-parameter --name /uc3/dmp/tool/[ENV]/DbPassword --value [PASSWORD] --type SecureString --overwrite`
-- `aws ssm put-parameter --name /uc3/dmp/tool/[ENV]/DefaultAffiliationId --value [ROR ID] --type String --overwrite`
+You need to initialize the following env variables that are specific to the DMP Tool:
+- Database Password: `aws ssm put-parameter --name /uc3/dmp/tool/[ENV]/DbPassword --value [PASSWORD] --type SecureString --overwrite`
+- The default [ROR](https://ror.org) (your organization): `aws ssm put-parameter --name /uc3/dmp/tool/[ENV]/DefaultAffiliationId --value [ROR ID] --type String --overwrite`
 
 ### Sceptre (WIP)
 
