@@ -63,5 +63,8 @@ Outputs:
   EcrRepositoryARN:
     Value: !GetAtt EcrRepository.Arn
 
+  EcrURIPrefix:
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com"
+
   EcrRepositoryURI:
     Value: !GetAtt EcrRepository.RepositoryUri

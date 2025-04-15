@@ -1,0 +1,10 @@
+template:
+  path: s3.yaml
+  type: file
+
+parameters:
+  S3LogsObjectLifeSpan: '30'
+
+  S3CloudFrontVersioning: Enabled
+
+  S3PrivateVersioning: Enabled

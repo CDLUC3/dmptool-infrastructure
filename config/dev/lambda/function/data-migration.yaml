@@ -1,0 +1,45 @@
+template:
+  path: lambda/function/data-migration.yaml
+  type: file
+
+parameters:
+  VpcId: !stack_attr sceptre_user_data.vpc_id
+
+  Subnets: !stack_attr sceptre_user_data.public_subnets
+
+  Env: !stack_attr sceptre_user_data.env
+
+  DomainName: !stack_attr sceptre_user_data.domain
+
+  LoggerLayerId: !stack_output dev/lambda/layer/logger.yaml::LayerId
+
+  RdsLayerId: !stack_output dev/lambda/layer/rds.yaml::LayerId
+
+  SsmLayerId: !stack_output dev/lambda/layer/ssm.yaml::LayerId
+
+  RdsSecurityGroupId: !stack_output dev/rds.yaml::DbSecurityGroupId
+
+  RdsHost: !ssm /uc3/dmp/tool/dev/DbHost
+  RdsPort: !ssm /uc3/dmp/tool/dev/DbPort
+  RdsDatabase: !ssm /uc3/dmp/tool/dev/DbName
+  RdsUser: !ssm /uc3/dmp/tool/dev/DbUsername
+  RdsPassword: !ssm /uc3/dmp/tool/dev/DbPassword
+
+  S3BucketId: !stack_output dev/s3.yaml::S3PrivateBucketID
+
+  # Do not change this manually, it is updated by the build script
+  S3Key: 'lambda/function/dmptool-dataMigration-dev.zip'
+
+  EventBusArn: !stack_output dev/event-bridge.yaml::EventBusArn
+
+  DeadLetterQueueArn: !stack_output dev/sqs.yaml::DeadLetterQueueArn
+
+  LogLevel: 'debug'
+
+  LogRetentionDays: '14'
+
+  NodeEnv: 'development'
+
+hooks:
+  before_launch:
+    - !cmd "./src/sam-build-and-package-function.sh dev dataMigration ./src/lambda/function/dataMigration"

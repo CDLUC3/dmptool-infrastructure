@@ -1,6 +1,0 @@
-template:
-  path: s3-logs.yaml
-  type: file
-
-parameters:
-  LogBucketObjectLifeSpan: '30'

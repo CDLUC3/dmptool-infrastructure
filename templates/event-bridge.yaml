@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'EventBridge for the DMP Tool'
+
+Parameters:
+  Env:
+    Type: 'String'
+    Default: 'dev'
+
+  SsmPath:
+    Type: 'String'
+
+  DomainName:
+    Type: 'String'
+
+  LogRetentionDays:
+    Type: 'Number'
+    Default: 7
+
+  ArchiveRetentionDays:
+    Type: 'Number'
+    Default: 14
+
+Resources:
+  # -------------------------------------------------------
+  # The Event Bus for the DMP Tool System
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_Events.html
+  # -------------------------------------------------------
+  EventBus:
+    Type: 'AWS::Events::EventBus'
+    Properties:
+      Name: !Sub "${AWS::StackName}-Bus"
+
+  # Policy that allows EventBus to create events
+  EventBusPolicy:
+    Type: 'AWS::Events::EventBusPolicy'
+    Properties:
+      EventBusName: !Ref EventBus
+      StatementId: !Sub "${AWS::StackName}-bus-policy"
+      Statement:
+        Effect: 'Allow'
+        Principal: '*'
+        Action: 'events:PutEvents'
+        Resource: !GetAtt EventBus.Arn
+        Condition:
+            StringEquals:
+                "aws:PrincipalOrgID": !Ref AWS::AccountId
+
+  # LogGroup used in conjunction with the CloudWatchRule below for testing/debugging
+  EventBridgeLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Ref AWS::StackName
+      RetentionInDays: !Ref LogRetentionDays
+
+  # Rule that can be used for debuggging/testing. All events will get stuffed into the LogGroup
+  # Set the 'State' to 'DISABLED' when you're not debugging
+  # CloudWatchLogRule:
+  #   Type: 'AWS::Events::Rule'
+  #   Properties:
+  #     EventBusName: !GetAtt EventBus.Arn
+  #     EventPattern: !Sub >
+  #       {
+  #         "source": ["${DomainName}:lambda:event_publisher"]
+  #       }
+  #     Name: !Sub "${AWS::StackName}-logs"
+  #     State: 'ENABLED'
+  #     Targets:
+  #       - Arn: !GetAtt EventBridgeLogGroup.Arn
+  #         Id: !Sub "${AWS::StackName}-logs"
+
+  EventBusCloudWatchPolicy:
+    Type: 'AWS::Logs::ResourcePolicy'
+    Properties:
+      PolicyName: !Sub "${AWS::StackName}-cloudwatch"
+      PolicyDocument: !Sub >
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Action": [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "events.amazonaws.com",
+                  "delivery.logs.amazonaws.com"
+                ]
+              },
+              "Resource": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${AWS::StackName}*:*"
+            }
+          ]
+        }
+
+Outputs:
+  EventBusName:
+    Value: !Ref EventBus
+
+  EventBusArn:
+    Value: !GetAtt EventBus.Arn
+
+  EventBusPolicy:
+    Value: !Ref EventBusPolicy
+
+  LogGroupArn:
+    Value: !GetAtt EventBridgeLogGroup.Arn

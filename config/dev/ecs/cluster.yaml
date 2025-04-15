@@ -1,0 +1,14 @@
+template:
+  path: 'ecs/cluster.yaml'
+  type: 'file'
+
+parameters:
+  VpcId: !stack_attr sceptre_user_data.vpc_id
+
+  AlbSecurityGroupId: !stack_output dev/alb.yaml::AlbSecurityGroupId
+
+  DbSecurityGroupId: !stack_output dev/rds.yaml::DbSecurityGroupId
+
+  CacheSecurityGroupId: !stack_output dev/cache.yaml::CacheSecurityGroupId
+
+  DbPort: !stack_output dev/rds.yaml::DbPort

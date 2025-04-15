@@ -1,0 +1,17 @@
+template:
+  path: 'lambda/layer.yaml'
+  type: file
+
+parameters:
+  Env: !stack_attr sceptre_user_data.env
+
+  LayerName: 'cloud-formation'
+
+  S3BucketId: !stack_output dev/s3.yaml::S3PrivateBucketID
+
+  # Do not change this manually, it is updated by the build script
+  S3Key: 'lambda/layer/dmptool-cloudformation-dev.zip'
+
+hooks:
+  before_launch:
+    - !cmd "./src/sam-build-and-package-layer.sh dev cloud-formation ./src/lambda/layer/cloud-formation"

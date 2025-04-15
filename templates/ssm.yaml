@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'SSM Parameters for the DMP Tool'
+
+Parameters:
+  SsmPath:
+    Type: 'String'
+    Default: '/uc3/dmp/tool/dev/'
+
+  DefaultAffiliationRor:
+    Type: 'String'
+
+  EzidBaseUrl:
+    Type: 'String'
+    Default: 'https://doi.org/'
+
+  DoNotReplyEmail:
+    Type: 'String'
+
+Resources:
+  # ----------------------------------------------
+  # SSM Parameter Store (for some reason SecureString is not supported!)
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html
+  # ----------------------------------------------
+  DefaultAffiliationParameter:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Description: !Sub "${AWS::StackName} Default Affiliation"
+      Name: !Sub "${SsmPath}DefaultAffiliation"
+      Type: 'String'
+      Value: !Ref DefaultAffiliationRor
+
+  EzidBaseUrlParameter:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Description: !Sub "${AWS::StackName} EZID Base URL"
+      Name: !Sub "${SsmPath}EzidBaseUrl"
+      Type: 'String'
+      Value: !Ref EzidBaseUrl
+
+  DoNotReplyEmailParameter:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Description: !Sub "${AWS::StackName} Do Not Reply Email"
+      Name: !Sub "${SsmPath}DoNotReplyEmail"
+      Type: 'String'
+      Value: !Ref DoNotReplyEmail
+
+Outputs:
+  DefaultAffiliationSsmParameter:
+    Value: !Ref DefaultAffiliationParameter
+
+  EzidBaseUrlSsmParameter:
+    Value: !Ref EzidBaseUrl

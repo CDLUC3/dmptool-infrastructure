@@ -155,7 +155,7 @@ Resources:
     Properties:
       DistributionConfig:
         Aliases:
-          - !Ref Domain
+          - !Sub "cdn.${Domain}"
 
         Comment: !Sub "${AWS::StackName} CDN"
         Enabled: 'true'

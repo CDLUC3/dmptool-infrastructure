@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'Builds out an SQS queue'
+
+Parameters:
+  Env:
+    Type: 'String'
+    Default: 'dev'
+
+  SsmPath:
+    Type: 'String'
+
+  MessageRetentionSeconds:
+    Type: 'Number'
+    Default: 7200 # 2 hours
+
+  DeadLetterRetentionSeconds:
+    Type: 'Number'
+    Default: 7200 # 2 hours
+
+  DelaySeconds:
+    Type: 'Number'
+    Default: 5
+
+  MaxReceiveCount:
+    Type: 'Number'
+    Default: 5
+
+Resources:
+  # ----------------------------------------------
+  # Simple Queue Service (SQS). Some Lambdas write to the queue and others watch for messages
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html
+  # ----------------------------------------------
+  DeadLetterQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-DeadLetterQueue"
+      MessageRetentionPeriod: !Ref DeadLetterRetentionSeconds
+
+  SqsQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-Queue"
+      MessageRetentionPeriod: !Ref MessageRetentionSeconds
+      DelaySeconds: !Ref DelaySeconds # Delay to allow Lambda to scale if necessary
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: !Ref MaxReceiveCount
+
+  # ----------------------------------------------
+  # Simple Notification Service (SNS) topics
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html
+  # ----------------------------------------------
+  SnsTopicEmail:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      # ContentBasedDeduplication: true
+      DisplayName: 'DmpHubEmail'
+      Subscription:
+        - Protocol: 'sqs'
+          Endpoint: !GetAtt SqsQueue.Arn
+
+Outputs:
+  DeadLetterQueueId:
+    Value: !Ref DeadLetterQueue
+
+  DeadLetterQueueArn:
+    Value: !GetAtt DeadLetterQueue.Arn
+
+  QueueId:
+    Value: !Ref SqsQueue
+
+  QueueArn:
+    Value: !GetAtt SqsQueue.Arn

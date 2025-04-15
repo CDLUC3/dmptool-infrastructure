@@ -1,0 +1,91 @@
+template:
+  path: 'ecs/apollo.yaml'
+  type: 'file'
+
+parameters:
+  Subnets: !stack_attr sceptre_user_data.public_subnets
+
+  Env: !stack_attr sceptre_user_data.env
+  AppName: !stack_attr sceptre_user_data.app
+  Domain: !stack_attr sceptre_user_data.domain
+  ContainerName: !stack_attr sceptre_user_data.apollo_container_name
+
+  DefaultAffiliationUri: !stack_output dev/ssm.yaml::DefaultAffiliationSsmParameter
+  DoiBase: !stack_output dev/ssm.yaml::EzidBaseUrlSsmParameter
+  DoiShoulder: !ssm /uc3/dmp/tool/dev/EzidShoulder
+
+  AppPort: !stack_attr sceptre_user_data.apollo_container_port
+
+  EcrRepositoryUri: !stack_output dev/ecr.yaml::EcrRepositoryURI
+
+  EcrImageTag: !stack_attr sceptre_user_data.apollo_image_tag
+
+  EcsClusterId: !stack_output dev/ecs/cluster.yaml::EcsFargateClusterId
+  EcsTaskExecutionRoleId: !stack_output dev/ecs/cluster.yaml::EcsFargateExecutionRoleId
+  EcsSecGrpId: !stack_output dev/ecs/cluster.yaml::EcsFargateSecGrp
+
+  AlbTargetGroupArn: !stack_output dev/alb.yaml::ApolloServerTargetGroupArn
+  AlbSecGrpId: !stack_output dev/alb.yaml::AlbSecurityGroupId
+
+  EcsDesiredServiceCount: '2'
+
+  CpuSize: '2048'
+  MemorySize: '4096'
+
+  StartTimeout: '30'
+  HealthCheckGracePeriod: '30'
+  MinimumHealthyContainerPercentage: '50'
+  MaximumHealthyContainerPercentage: '200'
+  StopTimeout: '30'
+
+  # ENV variables used by the container
+  LogLevel: 'debug'
+  NodeEnv: 'staging'
+
+  DynamoTableName: !stack_output dev/dynamo.yaml::DynamoTableName
+
+  DmpHubClientId: !stack_output_external uc3-dmp-hub-dev-regional-cognito::DmspUserPoolClientId
+  DmpHubClientSecret: !stack_output_external uc3-dmp-hub-dev-regional-cognito::DmspUserPoolClientSecret
+
+  DmpIdBaseUrl: !ssm /uc3/dmp/tool/dev/EzidBaseUrl
+  DmpIdShoulder: !ssm /uc3/dmp/tool/dev/EzidShoulder
+
+  BcryptSaltRounds: '10'
+  BcryptHashSecret: !ssm /uc3/dmp/tool/dev/BcryptHashSecret
+  HashTokenSecret: !ssm /uc3/dmp/tool/dev/CacheHashSecret
+
+  JwtSecret: !ssm /uc3/dmp/tool/dev/JWTSecret
+  JwtTtl: '1800000' # 30 minutes (in milliseconds)
+  JwtRefreshSecret: !ssm /uc3/dmp/tool/dev/JWTRefreshSecret
+  JwtRefreshTtl: '86400000' # 24 hours (in milliseconds)
+
+  CsrfLength: '64'
+  CsrfTtl: '3600' # 1 hour (in seconds)
+
+  RestDataSourceCacheTtl: '180' # 2 minutes
+
+  DbConnectionLimit: '5'
+  DbHost: !stack_output dev/rds.yaml::DbAddress
+  DbPort: !stack_output dev/rds.yaml::DbPort
+  DbName: !stack_output dev/rds.yaml::DbName
+  DbUsername: !ssm /uc3/dmp/tool/dev/RdsUsername
+  DbPassword: !ssm /uc3/dmp/tool/dev/RdsPassword
+
+  CacheHost: !stack_output dev/cache.yaml::CachePrimaryEndpointAddress
+  CachePort: !stack_output dev/cache.yaml::CachePrimaryEndpointPort
+  CacheConnectTimeout: '10000' # 10 seconds
+
+  SesEndpoint: !ssm /uc3/dev/SesEndpoint
+  SesBouncedEmailBucket: !ssm /uc3/dev/SesBouncedEmailBucket
+  SesAccessKeyId: !ssm /uc3/dmp/tool/dev/SesAccessKeyId
+  SesAccessKeySecret: !ssm /uc3/dmp/tool/dev/SesAccessKeySecret
+
+  DoNotReplyEmail: !ssm /uc3/dmp/tool/dev/DoNotReplyEmail
+  HelpdeskEmail: !ssm /uc3/dmp/tool/dev/HelpdeskEmail
+
+  UseMockData: 'true'
+
+hooks:
+  # ECS needs a placeholder image to be pushed to ECR for the build to succeed
+  before_create:
+    - !cmd "./src/make-temp-ecs-docker-image.sh dev apollo-latest 4000 up"

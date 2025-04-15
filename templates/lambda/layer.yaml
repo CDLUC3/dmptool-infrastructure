@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Transform: 'AWS::Serverless-2016-10-31'
+
+Parameters:
+  Env:
+    Type: 'String'
+    Default: 'dev'
+
+  LayerName:
+    Type: 'String'
+
+  S3BucketId:
+    Type: 'String'
+
+  S3Key:
+    Type: 'String'
+
+Resources:
+  # ----------------------------------------------------
+  # Lambda Layers
+  #   See: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-layerversion.html
+  # ----------------------------------------------------
+  LayerVersion:
+    # Type: 'AWS::Serverless::LayerVersion'
+    Type: 'AWS::Lambda::LayerVersion'
+    Properties:
+      LayerName: !Ref AWS::StackName
+      Content:
+        S3Bucket: !Ref S3BucketId
+        S3Key: !Ref S3Key
+      CompatibleRuntimes:
+        - 'nodejs20.x'
+      CompatibleArchitectures:
+        - 'arm64'
+      # RetentionPolicy: 'Delete'
+
+    # AWS SAM doesn't yet support esbuild for Layers even though they do for functions. Leaving this
+    # here for the eventual day when they do. Once that happens we will also need to remove the Sceptre hooks
+    #
+    # Metadata:
+    #   BuildMethod: 'esbuild'
+    #   BuildProperties:
+    #     Minify: true
+    #     Target: 'es2020'
+    #     Sourcemap: false
+
+Outputs:
+  LayerId:
+    Value: !Ref LayerVersion

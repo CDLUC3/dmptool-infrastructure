@@ -30,21 +30,10 @@ Parameters:
 
   DynamoBillingMode:
     Type: 'String'
-    Default: 'PROVISIONED'
+    Default: 'PAY_PER_REQUEST'
     AllowedValues:
       - 'PROVISIONED'
       - 'PAY_PER_REQUEST'
-
-  DynamoReadCapacityUnits:
-    Type: 'Number'
-    Default: 10
-
-  DynamoWriteCapacityUnits:
-    Type: 'Number'
-    Default: 10
-
-  ProvisionedCapacity:
-    !Not [!Equals [!Ref DynamoBillingMode, 'PAY_PER_REQUEST']]
 
 Resources:
   # ----------------------------------------------
@@ -86,11 +75,6 @@ Resources:
 
       BillingMode: !Ref DynamoBillingMode
       TableClass: !Ref DynamoTableClass
-      ProvisionedThroughput: !If
-        - ProvisionedCapacity
-        - ReadCapacityUnits: !Ref DynamoReadCapacityUnits
-          WriteCapacityUnits: !Ref DynamoWriteCapacityUnits
-        - !Ref AWS::NoValue
       ContributorInsightsSpecification:
         Enabled: !Ref DynamoEnableContributorInsights
       PointInTimeRecoverySpecification:
@@ -102,23 +86,9 @@ Outputs:
 
   DynamoTableStreamArn:
     Value: !GetAtt DynamoTable.StreamArn
-    Export:
-      Name: !Sub '${Env}-DynamoTableStreamArn'
-
-  TypeaheadTableStreamArn:
-    Value: !GetAtt TypeaheadTable.StreamArn
-    Export:
-      Name: !Sub '${Env}-TypeaheadTableStreamArn'
 
   DynamoTableId:
     Value: !Ref DynamoTable
 
   DynamoTableArn:
     Value: !GetAtt DynamoTable.Arn
-    Export:
-      Name: !Sub '${Env}-DynamoTableArn'
-
-  TypeaheadTableArn:
-    Value: !GetAtt TypeaheadTable.Arn
-    Export:
-      Name: !Sub '${Env}-TypeaheadTableArn'

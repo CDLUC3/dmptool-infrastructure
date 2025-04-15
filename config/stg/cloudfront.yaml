@@ -6,7 +6,7 @@ template:
   type: 'file'
 
 dependencies:
-  - 'stg/s3-cdn.yaml'
+  - 'stg/s3.yaml'
 
 # NOTE: CloudFront can be slow to finish the creation/update process. The Distribution will go into
 #       a pending status and then can take some time before it is deployed. If your sceptre command
@@ -20,10 +20,10 @@ parameters:
   # us to fetch outputs from the other stacks in the us-west-2 region
   CertificateArn: !stack_output_external dmp-tool-stg-acm::CertificateArn cdl-uc3-prd
 
-  S3LogBucketId: !stack_output_external dmp-tool-stg-s3-logs::S3BucketID cdl-uc3-prd
+  S3LogBucketId: !stack_output_external dmp-tool-stg-s3::S3LogsBucketID cdl-uc3-prd
 
-  S3CloudFrontBucketId: !stack_output_external dmp-tool-stg-s3-cdn::S3BucketID cdl-uc3-prd
-  S3CloudFrontBucketArn: !stack_output_external dmp-tool-stg-s3-cdn::S3BucketARN cdl-uc3-prd
+  S3CloudFrontBucketId: !stack_output_external dmp-tool-stg-s3::S3CloudFrontBucketID cdl-uc3-prd
+  S3CloudFrontBucketArn: !stack_output_external dmp-tool-stg-s3::S3CloudFrontBucketARN cdl-uc3-prd
 
   CacheDefaultTtlSeconds: '180'
   CacheMinTtlSeconds: '30'

@@ -1,0 +1,51 @@
+# Sceptre will create an S3 bucket to store your CloudFormation templates. Define the name here or
+# provide the name of an existing bucket.
+template_bucket_name: 'dmp-tool-dev-cloudformation'
+
+# Stack tags are attached to every AWS resource created by these CloudFormation templates
+# with the exception of the Lambda functions and layers which are managed by AWS SAM.
+stack_tags:
+  Program: 'uc3'
+  Service: 'dmp'
+  Subservice: 'tool'
+  Environment: 'dev'
+  CodeRepo: 'https://github.com/CDLUC3/dmptool-infrastructure'
+  Contact: 'briley'
+
+# Define reusable variables that can be referenced in template specific config files via:
+#   my_variable: !stack_attr sceptre_user_data.[variable]
+sceptre_user_data:
+  # We include the profile here so that we can build resources in any of the AWS regions
+  vpc_id: !stack_output_external cdl-uc3-dev-vpc-stack::vpc cdl-uc3-dev
+
+  public_subnets:
+    - !stack_output_external cdl-uc3-dev-defaultsubnet-stack::defaultsubnet2a cdl-uc3-dev
+    - !stack_output_external cdl-uc3-dev-defaultsubnet-stack::defaultsubnet2b cdl-uc3-dev
+    - !stack_output_external cdl-uc3-dev-defaultsubnet-stack::defaultsubnet2c cdl-uc3-dev
+
+  # We sometimes need to access the subnets individually
+  public_subnet_a: !stack_output_external cdl-uc3-dev-defaultsubnet-stack::defaultsubnet2a cdl-uc3-dev
+  public_subnet_b: !stack_output_external cdl-uc3-dev-defaultsubnet-stack::defaultsubnet2b cdl-uc3-dev
+  public_subnet_c: !stack_output_external cdl-uc3-dev-defaultsubnet-stack::defaultsubnet2c cdl-uc3-dev
+
+  # The Hosted Zone
+  hosted_zone: !stack_output_external sceptre-uc3-ops-common-dev-route53::HostedZoneIdUc3devCdlibNet cdl-uc3-dev
+
+  # Environment specific variables
+  app: 'dmptool'
+  env: 'dev'
+  domain: 'dmptool-dev.uc3dev.cdlib.net'
+  ssm_path: '/uc3/dmp/tool/dev/'
+
+  # ECS containers
+  nextjs_image_tag: 'nextJS-latest'
+  nextjs_container_name: 'nextJS'
+  nextjs_container_port: '3000'
+
+  apollo_image_tag: 'apollo-latest'
+  apollo_container_name: 'apolloServer'
+  apollo_container_port: '4000'
+
+  shibboleth_image_tag: 'shibboleth-latest'
+  shibboleth_container_name: 'shibboleth'
+  shibboleth_container_port: '5000'

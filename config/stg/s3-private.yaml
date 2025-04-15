@@ -1,8 +1,0 @@
-template:
-  path: s3-private.yaml
-  type: file
-
-parameters:
-  S3Versioning: Enabled
-
-  S3LogBucket: !stack_output stg/s3-logs.yaml::S3BucketID

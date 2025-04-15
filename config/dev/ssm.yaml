@@ -1,0 +1,22 @@
+template:
+  path: 'ssm.yaml'
+  type: 'file'
+
+parameters:
+  # NOTE: Some critical SSM variables are NOT defined here due to their sensitive nature. Those variables
+  #       are managed via AWS CLI commands. See the README.md for the list of variables
+  #
+  #       If you need to add a new parameter consider whether it makes sense to add it here where it
+  #       will be checked into the Git repository or if it is better to manage it via the CLI.
+
+  # The base path/prefix for all of the application's SSM parameters
+  SsmPath: !stack_attr sceptre_user_data.ssm_path
+
+  # The default affiliation ROR ID the DMP Tool will use for the default users and templates on initialization
+  DefaultAffiliationRor: 'https://ror.org/03yrm5c26'
+
+  # The base URL that is used for creating DMP IDs (DOIs) via EZID https://ezid.cdlib.org.
+  EzidBaseUrl: 'https://doi.org/'
+
+  # The do-not-reply email address used for system notifications
+  DoNotReplyEmail: 'do-not-reply@dmptool-dev.cdlib.org'

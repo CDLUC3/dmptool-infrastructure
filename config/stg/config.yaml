@@ -1,7 +1,11 @@
 # In the cdl-uc3-prd account devs must call cloudformation using a service role
-cloudformation_service_role:  !ssm
+cloudformation_service_role: !ssm
   name: /uc3/prd/CfnServiceRoleArn
   region: us-west-2
+
+# Sceptre will create an S3 bucket to store your CloudFormation templates. Define the name here or
+# provide the name of an existing bucket.
+template_bucket_name: 'dmp-tool-stg-cloudformation'
 
 # Stack tags are attached to every AWS resource created by these CloudFormation templates
 # with the exception of the Lambda functions and layers which are managed by AWS SAM.
@@ -30,7 +34,7 @@ sceptre_user_data:
   public_subnet_c: !stack_output_external cdl-uc3-prd-defaultsubnet-stack::defaultsubnet2c cdl-uc3-prd
 
   # The Hosted Zone
-  hosted_zone: !stack_output_external uc3-ops-aws-prd-route53::HostedZoneIdUc3StgCdlibNet cdl-uc3-prd
+  hosted_zone: !ssm /uc3/dmp/hub/stg/HostedZoneId
 
   # Environment specific variables
   app: 'dmptool'
@@ -38,7 +42,15 @@ sceptre_user_data:
   domain: 'dmptool-stg.uc3stg.cdlib.net'
   ssm_path: '/uc3/dmp/tool/stg/'
 
-  # ECS container name prefixes
-  backend_server_container_name: 'apolloServer'
-  frontend_server_container_name: 'nextJS'
-  shibboleth_server_container_name: 'shibboleth'
+  # ECS containers
+  nextjs_image_tag: 'nextJS-latest'
+  nextjs_container_name: 'nextJS'
+  nextjs_container_port: '3000'
+
+  apollo_image_tag: 'apollo-latest'
+  apollo_container_name: 'apolloServer'
+  apollo_container_port: '4000'
+
+  shibboleth_image_tag: 'shibboleth-latest'
+  shibboleth_container_name: 'shibboleth'
+  shibboleth_container_port: '5000'

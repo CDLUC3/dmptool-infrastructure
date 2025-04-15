@@ -1,7 +1,4 @@
-# Sceptre will create an S3 bucket to store your CloudFormation templates. Define the name here or
-# provide the name of an existing bucket.
-template_bucket_name: 'dmp-tool-cloudformation'
-
 region: 'us-west-2'
 
+# Used to identify the project. All stacks and resources (unless given a specific name) will include this prefix
 project_code: 'dmp-tool'

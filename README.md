@@ -108,13 +108,33 @@ This repository uses [Sceptre](https://docs.sceptre-project.org/3.2.0/) to orche
 ### SSM variable setup (WIP)
 
 You need to initialize the following global variables in SSM:
-- `aws ssm put-parameter --name /uc3/dmp/HostedZoneId --value [HOSTED_ZONE_ID] --type String`
+- AWS SES: `aws ssm put-parameter --name /uc3/[ENV]/SesEndpoint --value [SES_ENDPOINT] --type String`
+- AWS SES Bounced Email Bucket: `aws ssm put-parameter --name /uc3/[ENV]/SesBouncedEmailBucket --value [S3BucketId] --type String`
 
 Note we explicitly do NOT use the "overwrite" argument for global variables because they may be used by other services. By NOT overwiting them, we ensure that they are not accidentally overwritten and impact other systems.
 
 You need to initialize the following env variables that are specific to the DMP Tool:
-- Database Password: `aws ssm put-parameter --name /uc3/dmp/tool/[ENV]/DbPassword --value [PASSWORD] --type SecureString --overwrite`
-- The default [ROR](https://ror.org) (your organization): `aws ssm put-parameter --name /uc3/dmp/tool/[ENV]/DefaultAffiliationId --value [ROR ID] --type String --overwrite`
+- Helpdesk Email: `aws ssm put-parameter --name /uc3/dmp/tool/[ENV]/HelpdeskEmail --value [EMAIL] --type String --overwrite`
+- Database Password: `aws ssm put-parameter --name /uc3/dmp/tool/[ENV]/RdsPassword --value [PASSWORD] --type SecureString --overwrite`
+- The default EZID shoulder that will be used to register DOIs: `aws ssm put-parameter --name /uc3/dmp/tool/[ENV]/EzidShoulder --value [Shoulder ID] --type String --overwrite`
+- AWS SES Access Key Id: `aws ssm put-parameter --name /uc3/dmp/tool/[env]/SesAccessKeyId --value [MyKey] --type SecureString --overwrite`
+- AWS SES Access Key Secret: `aws ssm put-parameter --name /uc3/dmp/tool/[env]/SesAccessKeySecret --value [MySecret] --type SecureString --overwrite`
+- Bcrypt Secret: `aws ssm put-parameter --name /uc3/dmp/tool/[env]/BcryptHashSecret --value [Secret] --type SecureString --overwrite`
+- Cache Token Secret: `aws ssm put-parameter --name /uc3/dmp/tool/[env]/CacheHashSecret --value [Secret] --type SecureString --overwrite`
+- JWT Secret: `aws ssm put-parameter --name /uc3/dmp/tool/[env]/JWTSecret --value [Secret] --type SecureString --overwrite`
+- Refresh Token Secret: `aws ssm put-parameter --name /uc3/dmp/tool/[env]/JWTRefreshSecret --value [Secret] --type SecureString --overwrite`
+
+### DMPHub client credentials
+
+You will need to ensure that credentials have been defined in the DMPHub system.
+
+**If you are building the system within our UC3 account**
+The owner of the DMPHub system will provide you with the CF stack name and output variables for your ClientId and Client Secret that will need to be used within the `config/[env]/ecs-apollo.yaml` Sceptre config file. For example:
+`DmpHubClientId: !stack_output_external uc3-dmp-hub-stg-regional-api-clients-dmp-tool-apollo::ClientId`
+
+**If you are not working within the UC3 account**
+The owner of the DMPHub system will provide you with your ClientId and ClientSecret. You should then use AWS CLI commands like the ones above to store those values in the SSM paramater store. Then update the `config/[env]/ecs-apollo.yaml` Sceptre config file to reference yoour new variables. For example:
+`DmpHubClientId: !ssm /name/of/my/DMPHubClientId`
 
 ### Sceptre (WIP)
 

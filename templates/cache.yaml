@@ -61,7 +61,7 @@ Resources:
   CacheLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub AWS::StackName
+      LogGroupName: !Ref AWS::StackName
       RetentionInDays: !Ref LogRetentionDays
 
   CacheSecurityGroup:

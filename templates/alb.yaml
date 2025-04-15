@@ -1,5 +1,4 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Transform: 'AWS::Serverless-2016-10-31'
 
 Description: 'Application load balancer for the DMP Tool ECS cluster'
 
@@ -29,14 +28,24 @@ Parameters:
     Type: 'String'
     Default: 'alb-access'
 
-  AppName:
-    Type: 'String'
   Environment:
     Type: String
     Default: 'dev'
 
   Domain:
     Type: 'String'
+
+  ApolloPort:
+    Type: 'Number'
+    Default: 4000
+
+  NextJsPort:
+    Type: 'Number'
+    Default: 3000
+
+  ShibbolethPort:
+    Type: 'Number'
+    Default: 5000
 
 Resources:
   # -----------------------------------------------------------
@@ -95,7 +104,7 @@ Resources:
         #       browser or curl though it returns a 200
         HttpCode: '200-399'
       VpcId: !Ref VpcId
-      Port: 4000
+      Port: !Ref ApolloPort
       Protocol: 'HTTP'
       # TargetGroupAttributes:
       #   - Key: 'stickiness.enabled'
@@ -123,7 +132,7 @@ Resources:
         #       browser or curl though it returns a 200
         HttpCode: '200-399'
       VpcId: !Ref VpcId
-      Port: 3000
+      Port: !Ref NextJsPort
       Protocol: 'HTTP'
       # TargetGroupAttributes:
       #   - Key: 'stickiness.enabled'
@@ -148,7 +157,7 @@ Resources:
   #     Matcher:
   #       HttpCode: '200'
   #     VpcId: !Ref VpcId
-  #     Port: 5000
+  #     Port: !Ref ShibbolethPort
   #     Protocol: 'HTTP'
   #     TargetGroupAttributes:
   #       - Key: 'stickiness.enabled'
@@ -314,11 +323,11 @@ Outputs:
   NextJsServerTargetGroupFullName:
     Value: !GetAtt NextJsServerTargetGroup.TargetGroupFullName
 
-  ShibbolethTargetGroupArn:
-    Value: !Ref ShibbolethTargetGroup
+  # ShibbolethTargetGroupArn:
+  #   Value: !Ref ShibbolethTargetGroup
 
-  ShibbolethTargetGroupFullName:
-    Value: !GetAtt ShibbolethTargetGroup.TargetGroupFullName
+  # ShibbolethTargetGroupFullName:
+  #   Value: !GetAtt ShibbolethTargetGroup.TargetGroupFullName
 
   AlbArn:
     Value: !Ref Alb

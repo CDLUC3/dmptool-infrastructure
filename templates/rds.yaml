@@ -75,9 +75,11 @@ Parameters:
 
   DbMasterUsername:
     Type: 'String'
+    NoEcho: true
 
   DbMasterPassword:
     Type: 'String'
+    NoEcho: true
 
 Conditions:
   InitializeDb:
@@ -181,7 +183,7 @@ Resources:
     Type: 'AWS::SSM::Parameter'
     Properties:
       Description: !Sub "${AWS::StackName} RDS hostname"
-      Name: !Sub "${SsmPath}DbHost"
+      Name: !Sub "${SsmPath}RdsHost"
       Type: 'String'
       Value: !GetAtt Database.Endpoint.Address
 
@@ -189,7 +191,7 @@ Resources:
     Type: 'AWS::SSM::Parameter'
     Properties:
       Description: !Sub "${AWS::StackName} RDS port"
-      Name: !Sub "${SsmPath}DbPort"
+      Name: !Sub "${SsmPath}RdsPort"
       Type: 'String'
       Value: !GetAtt Database.Endpoint.Port
 
@@ -197,7 +199,7 @@ Resources:
     Type: 'AWS::SSM::Parameter'
     Properties:
       Description: !Sub "${AWS::StackName} RDS database name"
-      Name: !Sub "${SsmPath}DbName"
+      Name: !Sub "${SsmPath}RdsName"
       Type: 'String'
       Value: !Ref DbName
 
@@ -205,7 +207,7 @@ Resources:
     Type: 'AWS::SSM::Parameter'
     Properties:
       Description: !Sub "${AWS::StackName} RDS username"
-      Name: !Sub "${SsmPath}DbUsername"
+      Name: !Sub "${SsmPath}RdsUsername"
       Type: 'String'
       Value: !Ref DbMasterUsername
 
@@ -260,8 +262,6 @@ Outputs:
 
   DbSecurityGroupId:
     Value: !GetAtt DbSecurityGroup.GroupId
-    Export:
-      Name: !Sub '${DbName}-${Env}-DbSecurityGroupId'
 
   DbSubnetName:
     Value: !Ref DbSubnetGroup

@@ -1,0 +1,51 @@
+template:
+  path: 'ecs/nextJS.yaml'
+  type: 'file'
+
+dependencies:
+  # Ensure the Route53 records are created
+  - stg/route53.yaml
+
+parameters:
+  Subnets: !stack_attr sceptre_user_data.public_subnets
+
+  Env: !stack_attr sceptre_user_data.env
+  AppName: !stack_attr sceptre_user_data.app
+  Domain: !stack_attr sceptre_user_data.domain
+  ContainerName: !stack_attr sceptre_user_data.nextjs_container_name
+
+  AppPort: !stack_attr sceptre_user_data.nextjs_container_port
+
+  EcrRepositoryUri: !stack_output stg/ecr.yaml::EcrRepositoryURI
+
+  EcrImageTag: !stack_attr sceptre_user_data.nextjs_image_tag
+
+  EcsClusterId: !stack_output stg/ecs/cluster.yaml::EcsFargateClusterId
+  EcsTaskExecutionRoleId: !stack_output stg/ecs/cluster.yaml::EcsFargateExecutionRoleId
+  EcsSecGrpId: !stack_output stg/ecs/cluster.yaml::EcsFargateSecGrp
+
+  AlbTargetGroupArn: !stack_output stg/alb.yaml::NextJsServerTargetGroupArn
+  AlbSecGrpId: !stack_output stg/alb.yaml::AlbSecurityGroupId
+
+  EcsDesiredServiceCount: '2'
+
+  CpuSize: '2048'
+  MemorySize: '4096'
+
+  StartTimeout: '30'
+  HealthCheckGracePeriod: '30'
+  MinimumHealthyContainerPercentage: '50'
+  MaximumHealthyContainerPercentage: '200'
+  StopTimeout: '30'
+
+  # ENV variables used by the container
+  LogLevel: 'debug'
+
+  CdnDomain: !stack_output stg/cloudfront.yaml::CloudfrontDistributionDomainName
+
+  HelpdeskEmail: !ssm /uc3/dmp/tool/stg/HelpdeskEmail
+
+hooks:
+  # ECS needs a placeholder image to be pushed to ECR for the build to succeed
+  before_create:
+    - !cmd "./src/make-temp-ecs-docker-image.sh stg nextJS-latest 3000 healthcheck"

@@ -1,0 +1,230 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'Lambda to perform data migrations on the RDS database'
+
+Parameters:
+  VpcId:
+    Type: 'AWS::EC2::VPC::Id'
+
+  Subnets:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+
+  Env:
+    Type: 'String'
+    Default: 'dev'
+
+  DomainName:
+    Type: 'String'
+
+  LogLevel:
+    Type: 'String'
+    Default: 'info'
+    AllowedValues:
+      - 'fatal'
+      - 'error'
+      - 'warn'
+      - 'info'
+      - 'debug'
+      - 'trace'
+
+  LogRetentionDays:
+    Type: 'Number'
+    Default: 14
+
+  LoggerLayerId:
+    Type: 'String'
+
+  RdsLayerId:
+    Type: 'String'
+
+  SsmLayerId:
+    Type: 'String'
+
+  RdsSecurityGroupId:
+    Type: 'String'
+
+  RdsHost:
+    Type: 'String'
+
+  RdsPort:
+    Type: 'Number'
+    Default: 3006
+
+  RdsDatabase:
+    Type: 'String'
+
+  RdsUser:
+    Type: 'String'
+    NoEcho: true
+
+  RdsPassword:
+    Type: 'String'
+    NoEcho: true
+
+  S3BucketId:
+    Type: 'String'
+
+  S3Key:
+    Type: 'String'
+
+  EventBusArn:
+    Type: 'String'
+
+  DeadLetterQueueArn:
+    Type: 'String'
+
+  NodeEnv:
+    Type: 'String'
+
+Resources:
+  # ----------------------------------------------------
+  # CloudWatch LogGroup
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_Logs.html
+  # ----------------------------------------------------
+  LogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Ref AWS::StackName
+      RetentionInDays: !Ref LogRetentionDays
+
+  # -----------------------------------------------------------
+  # EC2 Security Groups for Lambda
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+  # -----------------------------------------------------------
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: !Sub 'Lambda security group for ${AWS::StackName}'
+      GroupName: !Sub '${AWS::StackName}-SecGrp'
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: 'tcp'
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: '0.0.0.0/0'
+
+  # Allow the Lambda instance(s) to receive traffic from RDS
+  LambdaSecurityGroupIngressFromRds:
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn:
+      - SecurityGroup
+    Properties:
+      IpProtocol: 'tcp'
+      FromPort: !Ref RdsPort
+      ToPort: !Ref RdsPort
+      GroupId: !GetAtt SecurityGroup.GroupId
+      SourceSecurityGroupId: !Ref RdsSecurityGroupId
+
+  # Allow RDS to receive traffic from the Lambda
+  RdsSecurityGroupIngressFromLambda:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    DependsOn:
+      - SecurityGroup
+    Properties:
+      IpProtocol: 'tcp'
+      # TODO: Update this to allow traffic to Shib
+      FromPort: !Ref RdsPort
+      ToPort: !Ref RdsPort
+      GroupId: !Ref RdsSecurityGroupId
+      SourceSecurityGroupId: !GetAtt SecurityGroup.GroupId
+
+  # -----------------------------------------------------------
+  # Identitity and Access Management (IAM)
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_IAM.html
+  # -----------------------------------------------------------
+  IAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service:
+                - 'lambda.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole'
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole'
+        - 'arn:aws:iam::aws:policy/AmazonRDSDataFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess'
+      Policies:
+        - PolicyName: !Sub '${AWS::StackName}-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - "sqs:ReceiveMessage"
+                  - "sqs:DeleteMessage"
+                  - "sqs:GetQueueAttributes"
+                  - "sqs:SendMessage"
+                Resource:
+                  - !Ref DeadLetterQueueArn
+
+  # -----------------------------------------------------------
+  # Lambda Function
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-function.html
+  # -----------------------------------------------------------
+  Function:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: !Ref AWS::StackName
+      Description: !Sub "${AWS::StackName} for RDS"
+      Architectures:
+        - 'arm64'
+      Handler: 'dist/index.handler'
+      Code:
+        S3Bucket: !Ref S3BucketId
+        S3Key: !Ref S3Key
+      DeadLetterConfig:
+        TargetArn: !Ref DeadLetterQueueArn
+      Environment:
+        Variables:
+          LOG_LEVEL: !Ref LogLevel
+          NODE_ENV: !Ref NodeEnv
+          RDS_HOST: !Ref RdsHost
+          RDS_PORT: !Ref RdsPort
+          RDS_DATABASE: !Ref RdsDatabase
+          RDS_USER: !Ref RdsUser
+          RDS_PASSWORD: !Ref RdsPassword
+      Layers:
+        - !Ref LoggerLayerId
+        - !Ref RdsLayerId
+        - !Ref SsmLayerId
+      LoggingConfig:
+        LogGroup: !Ref LogGroup
+      MemorySize: 128
+      PackageType: 'Zip'
+      RecursiveLoop: 'Terminate'
+      Role: !GetAtt IAMRole.Arn
+      Runtime: 'nodejs20.x'
+      Timeout: 300
+      VpcConfig:
+        SecurityGroupIds:
+          - !GetAtt SecurityGroup.GroupId
+        SubnetIds: !Ref Subnets
+
+Outputs:
+  LogGroupId:
+    Value: !Ref LogGroup
+
+  LogGroupArn:
+    Value: !GetAtt LogGroup.Arn
+
+  DbSecurityGroupId:
+    Value: !GetAtt SecurityGroup.GroupId
+
+  RoleId:
+    Value: !Ref IAMRole
+
+  RoleArn:
+    Value: !GetAtt IAMRole.Arn
+
+  FunctionId:
+    Value: !Ref Function
+
+  FunctionArn:
+    Value: !GetAtt Function.Arn

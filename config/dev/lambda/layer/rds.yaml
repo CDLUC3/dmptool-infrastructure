@@ -1,0 +1,17 @@
+template:
+  path: 'lambda/layer.yaml'
+  type: file
+
+parameters:
+  Env: !stack_attr sceptre_user_data.env
+
+  LayerName: 'rds'
+
+  S3BucketId: !stack_output dev/s3.yaml::S3PrivateBucketID
+
+  # Do not change this manually, it is updated by the build script
+  S3Key: 'lambda/layer/dmptool-rds-dev-3fa046715dc1075f2e26a722edf9063b4b6a34365184cf03ba2f55c3d0b515ed.zip'
+
+hooks:
+  before_launch:
+    - !cmd "./src/sam-build-and-package-layer.sh dev rds ./src/lambda/layer/rds"

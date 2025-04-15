@@ -1,0 +1,26 @@
+template:
+  path: 'codepipeline/apollo.yaml'
+  type: 'file'
+
+parameters:
+  CodeStarConnectionArn: !stack_output dev/codestar.yaml::CodestarConnectionARN
+
+  S3ArtifactBucketId: !stack_output dev/s3.yaml::S3PrivateBucketID
+
+  CodeBuildProjectName: !stack_output dev/codebuild/apollo.yaml::CodeBuildProjectId
+
+  EcsCluster: !stack_output dev/ecs/cluster.yaml::EcsFargateClusterId
+
+  EcsServiceName: !stack_output dev/ecs/apollo.yaml::EcsServiceName
+
+  Env: !stack_attr sceptre_user_data.env
+
+  AppName: !stack_attr sceptre_user_data.app
+
+  ContainerName: !stack_attr sceptre_user_data.apollo_container_name
+
+  RepositoryName: 'CDLUC3/dmsp_backend_prototype'
+
+  BranchToMonitor: 'stage'
+
+  SourceOutputArtifactFormat: 'CODEBUILD_CLONE_REF'

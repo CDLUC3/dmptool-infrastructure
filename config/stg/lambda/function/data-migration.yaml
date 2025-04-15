@@ -1,0 +1,38 @@
+template:
+  path: lambda/function/data-migration.yaml
+  type: file
+
+parameters:
+  VpcId: !stack_attr sceptre_user_data.vpc_id
+
+  Subnets: !stack_attr sceptre_user_data.public_subnets
+
+  Env: !stack_attr sceptre_user_data.env
+
+  DomainName: !stack_attr sceptre_user_data.domain
+
+  LoggerLayerId: !stack_output stg/lambda/layer/logger.yaml::LayerId
+
+  RdsLayerId: !stack_output stg/lambda/layer/rds.yaml::LayerId
+
+  SsmLayerId: !stack_output stg/lambda/layer/ssm.yaml::LayerId
+
+  RdsSecurityGroupId: !stack_output stg/rds.yaml::DbSecurityGroupId
+
+  DbPort: !stack_output dev/rds.yaml::DbPort
+
+  S3BucketId: !stack_output stg/s3.yaml::S3PrivateBucketID
+
+  EventBusArn: !stack_output stg/event-bridge.yaml::EventBusArn
+
+  DeadLetterQueueArn: !stack_output stg/sqs.yaml::DeadLetterQueueArn
+
+  LogLevel: 'debug'
+
+  LogRetentionDays: '14'
+
+  NodeEnv: 'staging'
+
+hooks:
+  before_launch:
+    - !cmd "./src/sam-build-and-package-function.sh stg dataMigration ./src/lambda/function/dataMigration"

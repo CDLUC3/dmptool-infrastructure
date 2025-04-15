@@ -1,0 +1,30 @@
+# CloudFront distributions must be in the global region
+region: 'us-east-1'
+
+template:
+  path: 'cloudfront.yaml'
+  type: 'file'
+
+dependencies:
+  - 'dev/s3.yaml'
+
+# NOTE: CloudFront can be slow to finish the creation/update process. The Distribution will go into
+#       a pending status and then can take some time before it is deployed. If your sceptre command
+#       appears to be stuck, this is most likely why, and you should let it complete.
+parameters:
+  Domain: !stack_attr sceptre_user_data.domain
+
+  HostedZoneId: !stack_attr sceptre_user_data.hosted_zone
+
+  # We include the profile here because we are creating the CF distro in us-east-1, the profile allows
+  # us to fetch outputs from the other stacks in the us-west-2 region
+  CertificateArn: !stack_output_external dmp-tool-dev-acm::CertificateArn cdl-uc3-prd
+
+  S3LogBucketId: !stack_output_external dmp-tool-dev-s3::S3LogsBucketID cdl-uc3-prd
+
+  S3CloudFrontBucketId: !stack_output_external dmp-tool-dev-s3::S3CloudFrontBucketID cdl-uc3-prd
+  S3CloudFrontBucketArn: !stack_output_external dmp-tool-dev-s3::S3CloudFrontBucketARN cdl-uc3-prd
+
+  CacheDefaultTtlSeconds: '180'
+  CacheMinTtlSeconds: '30'
+  CacheMaxTtlSeconds: '300' # 5 minutes

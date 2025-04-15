@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'S3 bucket to store logs (e.g. access logs for other S3 buckets)'
+
+Parameters:
+  S3LogsObjectLifeSpan:
+    Type: 'Number'
+    Default: 30
+
+  S3CloudFrontVersioning:
+    Type: 'String'
+    Default: Enabled
+
+  S3PrivateVersioning:
+    Type: 'String'
+    Default: Enabled
+
+Resources:
+  # S3 Bucket that stores S3 access logs and ALB logs
+  S3LogsBucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: 'Retain'
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-logs"
+      AccessControl: 'Private'
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: ObjectWriter
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: !Ref S3LogsObjectLifeSpan
+            Status: 'Enabled'
+
+  # S3 Bucket that stores assets for the DMP Tool UI (CDN)
+  S3CloudFrontBucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: 'Retain'
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-cdn"
+      AccessControl: 'Private'
+      VersioningConfiguration:
+        Status: !Ref S3CloudFrontVersioning
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LoggingConfiguration:
+        DestinationBucketName: !Ref S3LogsBucket
+        LogFilePrefix: 'cdn-access'
+
+  # S3 Bucket to store private files (e.g. CodeBuild artifacts)
+  S3PrivateBucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: 'Retain'
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-private"
+      AccessControl: 'Private'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LoggingConfiguration:
+        DestinationBucketName: !Ref S3LogsBucket
+        LogFilePrefix: 'private-access'
+      VersioningConfiguration:
+        Status: !Ref S3PrivateVersioning
+
+Outputs:
+  S3LogsBucketID:
+    Value: !Ref S3LogsBucket
+
+  S3LogsBucketURI:
+    Value: !Sub "s3://${S3LogsBucket}"
+
+  S3LogsBucketARN:
+    Value: !GetAtt S3LogsBucket.Arn
+
+  S3CloudFrontBucketID:
+    Value: !Ref S3CloudFrontBucket
+
+  S3CloudFrontBucketURI:
+    Value: !Sub "s3://${S3CloudFrontBucket}"
+
+  S3CloudFrontBucketARN:
+    Value: !GetAtt S3CloudFrontBucket.Arn
+
+  S3PrivateBucketID:
+    Value: !Ref S3PrivateBucket
+
+  S3PrivateBucketURI:
+    Value: !Sub "s3://${S3PrivateBucket}"
+
+  S3PrivateBucketARN:
+    Value: !GetAtt S3PrivateBucket.Arn

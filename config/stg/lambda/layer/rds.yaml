@@ -1,0 +1,14 @@
+template:
+  path: 'lambda/layer.yaml'
+  type: file
+
+parameters:
+  Env: !stack_attr sceptre_user_data.env
+
+  LayerName: 'rds'
+
+  S3BucketId: !stack_output stg/s3.yaml::S3PrivateBucketID
+
+hooks:
+  before_launch:
+    - !cmd "./src/sam-build-and-package-layer.sh stg rds ./src/lambda/layer/rds"
