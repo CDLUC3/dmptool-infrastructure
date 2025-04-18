@@ -49,4 +49,4 @@ sceptre_user_data:
 
   shibboleth_image_tag: 'shibboleth-latest'
   shibboleth_container_name: 'shibboleth'
-  shibboleth_container_port: '6000'
+  shibboleth_container_port: '5000'
