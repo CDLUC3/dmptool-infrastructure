@@ -5,18 +5,18 @@ template:
 parameters:
   Env: !stack_attr sceptre_user_data.env
 
-  CodeStarConnectionArn: !stack_output stg/codestar.yaml::CodestarConnectionARN
+  CodeStarConnectionArn: !stack_output dev/codestar.yaml::CodestarConnectionARN
 
-  EcrRepositoryArn: !stack_output stg/ecr.yaml::EcrRepositoryARN
-  EcrRepositoryUri: !stack_output stg/ecr.yaml::EcrRepositoryURI
-  EcrRepositoryName: !stack_output stg/ecr.yaml::EcrRepositoryName
+  EcrRepositoryArn: !stack_output dev/ecr.yaml::EcrRepositoryARN
+  EcrRepositoryUri: !stack_output dev/ecr.yaml::EcrRepositoryURI
+  EcrRepositoryName: !stack_output dev/ecr.yaml::EcrRepositoryName
 
-  S3ArtifactBucketArn: !stack_output stg/s3.yaml::S3PrivateBucketARN
-  S3ArtifactBucketId: !stack_output stg/s3.yaml::S3PrivateBucketID
+  S3ArtifactBucketArn: !stack_output dev/s3.yaml::S3PrivateBucketARN
+  S3ArtifactBucketId: !stack_output dev/s3.yaml::S3PrivateBucketID
 
   LogRetentionDays: '30'
 
-  ContainerName: !stack_attr sceptre_user_data.nextjs_container_port
+  ContainerName: !stack_attr sceptre_user_data.nextjs_container_name
 
   NodeEnv: 'production'
 

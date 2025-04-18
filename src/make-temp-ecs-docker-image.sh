@@ -22,11 +22,14 @@ docker build --platform linux/amd64 -t temp-image - <<EOF
   WORKDIR /app
 
   # Create the files that will respond to both "/" and "/${4}"
-  RUN echo "OK" > index.html && echo "OK" > $4
+  RUN echo "OK" > index.html && mkdir -p $4 && echo "OK" > $4/index.html && chmod -R 755 /app
 
   EXPOSE $3
 
-  CMD ["python", "-m", "http.server", "$3", "--bind", "0.0.0.0"]
+  # Force run as root to avoid permission problems
+  USER root
+
+  CMD ["python", "-m", "http.server", "$3", "--bind", "0.0.0.0", "--directory", "/app"]
 EOF
 
 # Push the placeholder image to ECR

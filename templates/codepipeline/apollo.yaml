@@ -147,8 +147,6 @@ Resources:
                 Version: '1'
               Configuration:
                 ProjectName: !Ref DataMigrationBuildProjectName
-              OutputArtifacts:
-                - Name: 'DataMigrationArtifact'
 
         # TODO: Add a Trivy test
 

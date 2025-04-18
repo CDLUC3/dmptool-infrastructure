@@ -244,13 +244,13 @@ Resources:
     Properties:
       Name: !Sub '${AWS::StackName}-Project'
       QueuedTimeoutInMinutes: 5
+      ConcurrentBuildLimit: 1
       Artifacts:
         Type: 'CODEPIPELINE'
         OverrideArtifactName: true
-      ConcurrentBuildLimit: 1
       Cache:
         Type: 'S3'
-        Location: !Sub "${S3ArtifactBucketId}/apollo/build-cache"
+        Location: !Sub "${S3ArtifactBucketId}/data-migration/build-cache"
       VpcConfig:
         VpcId: !Ref VpcId
         Subnets: !Ref Subnets
@@ -274,9 +274,10 @@ Resources:
               commands:
                 - echo "Running database migrations"
                 - ./data-migrations/process.sh $ENV
-                - 'printf "Migrations run: ${MIGRATIONS_RUN[@]}" >> migrations.log'
+                - printf '[{"status":"OK"}]' > dataMigrations.json
           artifacts:
-            files: migrations.log
+            files:
+              - dataMigrations.json
       LogsConfig:
         CloudWatchLogs:
           GroupName: !Ref LogGroup
