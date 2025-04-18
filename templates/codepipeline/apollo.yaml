@@ -18,6 +18,9 @@ Parameters:
   CodeBuildProjectName:
     Type: 'String'
 
+  DataMigrationBuildProjectName:
+    Type: 'String'
+
   RepositoryName:
     Type: 'String'
 
@@ -67,6 +70,11 @@ Resources:
                   "Effect": "Allow",
                   "Action": ["codestar-connections:UseConnection"],
                   "Resource": "${CodeStarConnectionArn}"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": ["ecr:*"],
+                  "Resource": ["*"]
                 }
               ]
             }
@@ -126,6 +134,22 @@ Resources:
               OutputArtifacts:
                 - Name: 'BuildArtifact'
 
+        - Name: 'DataMigration'
+          Actions:
+            - Name: 'DataMigration'
+              RunOrder: 3
+              InputArtifacts:
+                - Name: 'SourceArtifact'
+              ActionTypeId:
+                Category: 'Build'
+                Owner: 'AWS'
+                Provider: 'CodeBuild'
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref DataMigrationBuildProjectName
+              OutputArtifacts:
+                - Name: 'DataMigrationArtifact'
+
         # TODO: Add a Trivy test
 
         # Comment out this Deploy stage the first time you build the environment. The ECS services
@@ -133,7 +157,7 @@ Resources:
         - Name: 'Deploy'
           Actions:
             - Name: 'Deploy'
-              RunOrder: 3
+              RunOrder: 4
               InputArtifacts:
                 - Name: 'BuildArtifact'
               ActionTypeId:

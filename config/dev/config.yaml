@@ -29,7 +29,7 @@ sceptre_user_data:
   public_subnet_c: !stack_output_external cdl-uc3-dev-defaultsubnet-stack::defaultsubnet2c cdl-uc3-dev
 
   # The Hosted Zone
-  hosted_zone: !stack_output_external sceptre-uc3-ops-common-dev-route53::HostedZoneIdUc3devCdlibNet cdl-uc3-dev
+  hosted_zone: !ssm /uc3/dmp/HostedZoneId
 
   # Environment specific variables
   app: 'dmptool'

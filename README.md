@@ -133,21 +133,44 @@ The owner of the DMPHub system will provide you with the CF stack name and outpu
 `DmpHubClientId: !stack_output_external uc3-dmp-hub-stg-regional-api-clients-dmp-tool-apollo::ClientId`
 
 **If you are not working within the UC3 account**
-The owner of the DMPHub system will provide you with your ClientId and ClientSecret. You should then use AWS CLI commands like the ones above to store those values in the SSM paramater store. Then update the `config/[env]/ecs-apollo.yaml` Sceptre config file to reference yoour new variables. For example:
-`DmpHubClientId: !ssm /name/of/my/DMPHubClientId`
+The owner of the DMPHub system will provide you with your ClientId and ClientSecret. You should then use AWS CLI commands like the ones above to store those values in the SSM paramater store. Then update the `config/[env]/ecs-apollo.yaml` Sceptre config file to reference yoour new variables. For example: `DmpHubClientId: !ssm /name/of/my/DMPHubClientId`
+
+You should always store the `DMPHubClientSecret` in SSM and then access like this in yhe sceptre config: `DmpHubClientSecret: !ssm /name/of/my/DMPHubClientSecret`
 
 ### Sceptre (WIP)
 
-- Create the Codestar Connection to GitHub
-  - Run the Sceptre script to create the resource: `sceptre launch codestar-connection.yaml`
+Once your SSM parameters have been set up, you can build out the AWS resources.
+
+1. Create the Codestar Connection to GitHub (required to run the CodePipelines)
+  - Run `sceptre launch [env]/codestar.yaml`
   - Login to the AWS console and navigate to the CodePipeline page
   - Go to Settings > Connections and select the new connection
   - Follow the OAuth instructions to authorize the connection
--
--
-- ecr
-- route53
-- ecs-cluster
+2. Create the backend Apollo Server
+  - Run `sceptre launch [env]/codepipeline/apollo.yaml`
+3. Create the frontend NextJS Server
+  - Run `sceptre launch [env]/codepipeline/nextJS.yaml`
+4. Coming Soon! - Create the shibboleth Server
+  - Run `sceptre launch [env]/codepipeline/shibboleth.yaml`
+
+### Initialize DynamoDB
+
+If the system has any plans in the MySQL database, then you will need to login to the UI as a super admin user and then run the following GraphQL mutation to generate an initial version for each plan. Once you have logged in, navigate to the Apollo Server Explorer at `https://[my-domain]/graphql` and run the following mutation:
+```
+mutation SuperInitializePlanVersions {
+  superInitializePlanVersions {
+    count
+    planIds
+  }
+}
+```
+
+### Verify the systems are online
+Once the CloudFormation stacks have completed, you can do the following to determine if the systems are up and running.
+- Navigate to `https://[domain-name]/graphql` if the page loads then the backend Apollo Server is online
+- Navigate to `https://[domain-name]` if the page loads then the frontend NextJS Server is online
+- Click "Login" on `https://[domain-name]` and sign in with an account that uses email+password (instead of SSO). If you are able to sign in, then the frontend and backend are communicating properly
+- Coming Soon! - Click "Login" on `https://[domain-name]` and sign in with an account that uses SSO. If you are redirected to the IdP, can sign in, and get redirected back to the application and are signed in then Shibboleth is operating normally.
 
 ## Documentation
 

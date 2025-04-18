@@ -1,8 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
 
-Description: 'CodeBuild for the DMP Tool Apollo server backend application'
+Description: 'CodeBuild for running database migrations'
 
 Parameters:
+  VpcId:
+    Type: 'AWS::EC2::VPC::Id'
+
+  Subnets:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+
   Program:
     Type: 'String'
 
@@ -22,22 +28,6 @@ Parameters:
     Type: 'String'
     Default: 'dev'
 
-  ContainerName:
-    Type: 'String'
-
-  NodeEnv:
-    Type: 'String'
-    Default: 'production'
-
-  EcrRepositoryArn:
-    Type: 'String'
-
-  EcrRepositoryUri:
-    Type: 'String'
-
-  EcrRepositoryName:
-    Type: 'String'
-
   CodeStarConnectionArn:
     Type: 'String'
 
@@ -45,6 +35,12 @@ Parameters:
     Type: 'String'
 
   S3ArtifactBucketId:
+    Type: 'String'
+
+  RdsSecurityGroupId:
+    Type: 'String'
+
+  RdsPort:
     Type: 'String'
 
   LogRetentionDays:
@@ -70,7 +66,7 @@ Parameters:
 
   CodeBuildTimeout:
     Type: 'Number'
-    Default: 15 # minutes
+    Default: 5 # minutes
 
 Resources:
   # ----------------------------------------------------
@@ -176,9 +172,68 @@ Resources:
                   "Effect": "Allow",
                   "Action": ["codestar-connections:UseConnection"],
                   "Resource": "${CodeStarConnectionArn}"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ssm:GetParameters",
+                    "ssm:GetParameter"
+                  ],
+                  "Resource": ["*"]
                 }
               ]
             }
+
+  # ---------------------------------------------------------------------------------
+  # EC2 Security Groups to let CodeBuild run DB migrations
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+  # ---------------------------------------------------------------------------------
+  CodeBuildSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: !Sub '${AWS::StackName} CodeBuild Security Group'
+      GroupName: !Sub '${AWS::StackName}-SecGrp'
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - Description: 'CodeBuild allow all outbound traffic'
+          IpProtocol: '-1'
+          CidrIp: '0.0.0.0/0'
+      # Setting our own tags here because we need to include the `ConfigExclude` for this resource
+      Tags:
+        - Key: 'Program'
+          Value: !Ref Program
+        - Key: 'Service'
+          Value: !Ref Service
+        - Key: 'Subservice'
+          Value: !Ref Subservice
+        - Key: 'Environment'
+          Value: !Ref Env
+        - Key: 'CodeRepo'
+          Value: !Ref CodeRepo
+        - Key: 'Contact'
+          Value: !Ref Contact
+        - Key: 'ConfigExclude'
+          Value: 'Security-group-attached-to-ENI'
+
+  # Allow RDS to receive traffic from this CodeBuild
+  RdsSecurityGroupIngressFromCodeBuild:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      IpProtocol: 'tcp'
+      FromPort: !Ref RdsPort
+      ToPort: !Ref RdsPort
+      GroupId: !Ref RdsSecurityGroupId
+      SourceSecurityGroupId: !GetAtt CodeBuildSecurityGroup.GroupId
+
+  # Allow this CodeBuild to receive from RDS
+  CodeBuildSecurityGroupIngressFromRds:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      IpProtocol: 'tcp'
+      FromPort: !Ref RdsPort
+      ToPort: !Ref RdsPort
+      GroupId: !GetAtt CodeBuildSecurityGroup.GroupId
+      SourceSecurityGroupId: !Ref RdsSecurityGroupId
 
   # -----------------------------------------------------------
   # CodeBuild
@@ -196,23 +251,32 @@ Resources:
       Cache:
         Type: 'S3'
         Location: !Sub "${S3ArtifactBucketId}/apollo/build-cache"
+      VpcConfig:
+        VpcId: !Ref VpcId
+        Subnets: !Ref Subnets
+        SecurityGroupIds:
+          - !GetAtt CodeBuildSecurityGroup.GroupId
       Environment:
         ComputeType: !Ref CodeBuildEnvironmentComputeType
-        Image: !Ref CodeBuildEnvironmentImage
-        ImagePullCredentialsType: 'CODEBUILD'
+        Image: !Sub "${AWS::AccountId}.${CodeBuildEnvironmentImage}"
+        ImagePullCredentialsType: 'SERVICE_ROLE'
         PrivilegedMode: true
         Type: !Ref CodeBuildEnvironmentType
         EnvironmentVariables:
-          - Name: 'NODE_ENV'
-            Value: !Ref NodeEnv
-          - Name: 'TASK_DEFINITION_CONTAINER_NAME'
-            Value: !Ref ContainerName
-          - Name: 'ECR_REPOSITORY_URI'
-            Value: !Ref EcrRepositoryUri
-          - Name: 'ECR_REPOSITORY_NAME'
-            Value: !Ref EcrRepositoryName
+          - Name: 'ENV'
+            Value: !Ref Env
       Source:
         Type: 'CODEPIPELINE'
+        BuildSpec: |
+          version: 0.2
+          phases:
+            build:
+              commands:
+                - echo "Running database migrations"
+                - ./data-migrations/process.sh $ENV
+                - 'printf "Migrations run: ${MIGRATIONS_RUN[@]}" >> migrations.log'
+          artifacts:
+            files: migrations.log
       LogsConfig:
         CloudWatchLogs:
           GroupName: !Ref LogGroup
@@ -229,6 +293,9 @@ Outputs:
 
   CodeBuildRoleArn:
     Value: !GetAtt CodeBuildRole.Arn
+
+  CodebuildSecurityGroupId:
+    Value: !GetAtt CodeBuildSecurityGroup.GroupId
 
   CodeBuildProjectId:
     Value: !Ref CodeBuildProject

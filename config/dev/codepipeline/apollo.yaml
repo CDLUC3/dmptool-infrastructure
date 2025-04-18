@@ -9,6 +9,8 @@ parameters:
 
   CodeBuildProjectName: !stack_output dev/codebuild/apollo.yaml::CodeBuildProjectId
 
+  DataMigrationBuildProjectName: !stack_output dev/codebuild/data-migration.yaml::CodeBuildProjectId
+
   EcsCluster: !stack_output dev/ecs/cluster.yaml::EcsFargateClusterId
 
   EcsServiceName: !stack_output dev/ecs/apollo.yaml::EcsServiceName
