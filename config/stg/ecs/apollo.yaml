@@ -44,8 +44,8 @@ parameters:
 
   DynamoTableName: !stack_output stg/dynamo.yaml::DynamoTableName
 
-  DmpHubClientId: !stack_output_external uc3-dmp-hub-prd-regional-cognito::DmspUserPoolClientId
-  DmpHubClientSecret: !stack_output_external uc3-dmp-hub-prd-regional-cognito::DmspUserPoolClientSecret
+  DmpHubClientId: !ssm /uc3/dmp/tool/stg/DMPHubClientId
+  DmpHubClientSecret: !ssm /uc3/dmp/tool/stg/DMPHubClientSecret
 
   DmpIdBaseUrl: !ssm /uc3/dmp/tool/stg/EzidBaseUrl
   DmpIdShoulder: !ssm /uc3/dmp/tool/stg/EzidShoulder

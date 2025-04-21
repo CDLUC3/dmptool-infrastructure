@@ -215,8 +215,8 @@ Parameters:
       - 'false'
 
 Conditions:
-  IsDev:
-    !Equals [!Ref Env, 'dev']
+  IsProd:
+    !Equals [!Ref Env, 'prd']
 
 Resources:
   # -----------------------------------------------------------
@@ -464,9 +464,9 @@ Resources:
       DeploymentController:
         # If this is dev then just do a rolling deploy, otherwise use the blue/green strategy
         Type: !If
-          - IsDev
-          - 'ECS'
+          - IsProd
           - 'CODE_DEPLOY'
+          - 'ECS'
       LoadBalancers:
         - TargetGroupArn: !Ref AlbTargetGroupArn
           ContainerPort: !Ref AppPort

@@ -1,0 +1,40 @@
+template:
+  path: 'codebuild/data-migration.yaml'
+  type: 'file'
+
+parameters:
+  VpcId: !stack_attr sceptre_user_data.vpc_id
+
+  Subnets: !stack_attr sceptre_user_data.public_subnets
+
+  Program: !stack_attr stack_tags.Program
+  Service: !stack_attr stack_tags.Service
+  Subservice: !stack_attr stack_tags.Subservice
+  CodeRepo: !stack_attr stack_tags.CodeRepo
+  Contact: !stack_attr stack_tags.Contact
+
+  Env: !stack_attr sceptre_user_data.env
+
+  CodeStarConnectionArn: !stack_output stg/codestar.yaml::CodestarConnectionARN
+
+  S3ArtifactBucketArn: !stack_output stg/s3.yaml::S3PrivateBucketARN
+  S3ArtifactBucketId: !stack_output stg/s3.yaml::S3PrivateBucketID
+
+  RdsSecurityGroupId: !stack_output stg/rds.yaml::DbSecurityGroupId
+  RdsPort: !ssm /uc3/dmp/tool/stg/RdsPort
+
+  LogRetentionDays: '30'
+
+  CodeBuildEnvironmentType: 'LINUX_CONTAINER'
+  CodeBuildEnvironmentComputeType: 'BUILD_GENERAL1_MEDIUM' # 'BUILD_GENERAL1_SMALL'
+  # This is a custom image Alpine Linux version with node 22 and mysql client installed.
+  # We omit the AccountId from the name because it gets spliced in by cloud formation.
+  #
+  # The image can be found in this repo at: `src/codeBuild/Dockerfile`
+  CodeBuildEnvironmentImage: 'dkr.ecr.us-west-2.amazonaws.com/dmptool-stg/nodejs-mysql:latest'
+  CodeBuildTimeout: '15'
+
+hooks:
+  after_create:
+    - !cmd 'echo "Building data-migration image and publishing to ECR"'
+    - !cmd 'cd ./src/codeBuild && ./build_publish.sh stg'

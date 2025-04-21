@@ -152,6 +152,8 @@ Once your SSM parameters have been set up, you can build out the AWS resources.
   - Run `sceptre launch [env]/codepipeline/nextJS.yaml`
 4. Coming Soon! - Create the shibboleth Server
   - Run `sceptre launch [env]/codepipeline/shibboleth.yaml`
+5. Stage/Prod only - Create your Backup Vault.
+  - The RDS database and DynamoDB table are backed up automatically. The content of the S3 buckets is not though, so run `sceptre launch [env]/backup-vault.yaml` to ensure that the CloudFront and private buckets get backed up
 
 ### Initialize DynamoDB
 
