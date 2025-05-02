@@ -16,21 +16,43 @@ echo "Creating a temporary ECS Docker image for $2 on $1 environment at $3 ..."
 aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $ECR_PREFIX
 
 # Build a placeholder image for the ECS architecture that runs a simple HTTP server
+# docker build --platform linux/amd64 -t temp-image - <<EOF
+#   FROM python:3.12-alpine
+#
+#   WORKDIR /app
+#
+#   # Create the files that will respond to both "/" and "/${4}"
+#   RUN echo "OK" > index.html && mkdir -p $4 && echo "OK" > $4/index.html && chmod -R 755 /app
+#
+#  EXPOSE $3
+#
+#  # Force run as root to avoid permission problems
+#  # USER root
+#
+#  # CMD ["python", "-m", "http.server", "$3", "--bind", "0.0.0.0", "--directory", "/app"]
+#  CMD ["sh", "-c", "echo Starting server on $3 && python -m http.server $3 --bind 0.0.0.0 --directory /app"]
+#EOF
+
 docker build --platform linux/amd64 -t temp-image - <<EOF
-  FROM python:3.12-alpine
+FROM node:20-alpine
 
-  WORKDIR /app
+WORKDIR /app
 
-  # Create the files that will respond to both "/" and "/${4}"
-  RUN echo "OK" > index.html && mkdir -p $4 && echo "OK" > $4/index.html && chmod -R 755 /app
+RUN apk update && \
+    apk add curl
 
-  EXPOSE $3
+# Install http-server
+RUN npm install -g http-server
 
-  # Force run as root to avoid permission problems
-  USER root
+# Create test files
+RUN echo "OK" > /app/index.html && mkdir -p /app/$4 && echo "OK" > /app/$4/index.html && chmod -R 755 /app
 
-  CMD ["python", "-m", "http.server", "$3", "--bind", "0.0.0.0", "--directory", "/app"]
+EXPOSE $3
+
+CMD sh -c "echo 'Starting server on port $3...' && http-server /app -p $3 -a 0.0.0.0"
 EOF
+
+#CMD ["http-server", "/app", "-p", "$3", "-a", "0.0.0.0"]
 
 # Push the placeholder image to ECR
 docker tag temp-image ${ECR_URI}:$2

@@ -83,7 +83,7 @@ parameters:
   DoNotReplyEmail: !ssm /uc3/dmp/tool/dev/DoNotReplyEmail
   HelpdeskEmail: !ssm /uc3/dmp/tool/dev/HelpdeskEmail
 
-  UseMockData: 'true'
+  UseMockData: 'false'
 
 hooks:
   # ECS needs a placeholder image to be pushed to ECR for the build to succeed

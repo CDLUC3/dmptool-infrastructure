@@ -170,7 +170,10 @@ Resources:
                 },
                 {
                   "Effect": "Allow",
-                  "Action": ["codestar-connections:UseConnection"],
+                  "Action": [
+                    "codestar-connections:*",
+                    "codestar-connections.api:*"
+                  ],
                   "Resource": "${CodeStarConnectionArn}"
                 },
                 {
@@ -197,6 +200,14 @@ Resources:
       SecurityGroupEgress:
         - Description: 'CodeBuild allow all outbound traffic'
           IpProtocol: '-1'
+          FromPort: -1
+          ToPort: -1
+          CidrIp: '0.0.0.0/0'
+      SecurityGroupIngress:
+        - Description: 'CodeBuild allow inbound traffic on 443'
+          IpProtocol: 'tcp'
+          FromPort: 443
+          ToPort: 443
           CidrIp: '0.0.0.0/0'
       # Setting our own tags here because we need to include the `ConfigExclude` for this resource
       Tags:

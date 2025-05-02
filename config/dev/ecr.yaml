@@ -6,3 +6,8 @@ parameters:
   Env: !stack_attr sceptre_user_data.env
 
   ECRLifecyclePolicyTagPrefix: 'latest'
+
+hooks:
+  after_create:
+    # Build and publish the data-migration container image
+    - !cmd "./src/data-migration-container/build_publish.sh"

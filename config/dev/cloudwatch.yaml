@@ -1,0 +1,12 @@
+template:
+  path: 'cloudwatch.yaml'
+  type: 'file'
+
+parameters:
+  AlbName: !stack_output dev/alb.yaml::AlbFullName
+
+  NextJSTargetGroup: !stack_output dev/alb.yaml::NextJsServerTargetGroupFullName
+
+  ApolloTargetGroup: !stack_output dev/alb.yaml::ApolloServerTargetGroupFullName
+
+  ShibbolethTargetGroup: !stack_output dev/alb.yaml::ShibbolethTargetGroupFullName

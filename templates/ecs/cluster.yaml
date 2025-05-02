@@ -78,9 +78,8 @@ Resources:
       - EcsSecurityGroup
     Properties:
       IpProtocol: 'tcp'
-      # TODO: Update this to allow traffic to Shib
       FromPort: 3000
-      ToPort: 4000
+      ToPort: 5000
       GroupId: !GetAtt EcsSecurityGroup.GroupId
       SourceSecurityGroupId: !Ref AlbSecurityGroupId
 

@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'Cloudwatch alarms'
+
+Parameters:
+  AlbName:
+    Type: String
+
+  NextJSTargetGroup:
+    Type: String
+
+  ApolloTargetGroup:
+    Type: String
+
+  ShibbolethTargetGroup:
+    Type: String
+
+Resources:
+  NextJSUnhealthyTargetsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-NextJS-Unhealthy-Targets"
+      AlarmDescription: "Triggers if there are any unhealthy targets in the NextJS Target Group"
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - Name: TargetGroup
+          Value: !Ref NextJSTargetGroup
+        - Name: LoadBalancer
+          Value: !Ref AlbName
+      Statistic: Average
+      Period: 60               # evaluate every 60 seconds
+      EvaluationPeriods: 3     # if unhealthy for 3 periods = alarm
+      Threshold: 0             # we want > 0 to alarm
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      ActionsEnabled: false    # set to true and add SNS topic if you want alerts
+
+  ApolloServerUnhealthyTargetsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-Apollo-Unhealthy-Targets"
+      AlarmDescription: "Triggers if there are any unhealthy targets in the Apollo Target Group"
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - Name: TargetGroup
+          Value: !Ref ApolloTargetGroup
+        - Name: LoadBalancer
+          Value: !Ref AlbName
+      Statistic: Average
+      Period: 60               # evaluate every 60 seconds
+      EvaluationPeriods: 3     # if unhealthy for 3 periods = alarm
+      Threshold: 0             # we want > 0 to alarm
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      ActionsEnabled: false    # set to true and add SNS topic if you want alerts
+
+  ShibbolethUnhealthyTargetsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-Shibboleth-Unhealthy-Targets"
+      AlarmDescription: "Triggers if there are any unhealthy targets in the Shibboleth Target Group"
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - Name: TargetGroup
+          Value: !Ref ShibbolethTargetGroup
+        - Name: LoadBalancer
+          Value: !Ref AlbName
+      Statistic: Average
+      Period: 60               # evaluate every 60 seconds
+      EvaluationPeriods: 3     # if unhealthy for 3 periods = alarm
+      Threshold: 0             # we want > 0 to alarm
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      ActionsEnabled: false    # set to true and add SNS topic if you want alerts
+
+Outputs:
+  NextJSUnhealthyTargetsAlarmArn:
+    Value: !Ref NextJSUnhealthyTargetsAlarm
+
+  ApolloServerUnhealthyTargetsAlarmArn:
+    Value: !Ref ApolloServerUnhealthyTargetsAlarm
+
+  ShibbolethUnhealthyTargetsAlarmArn:
+    Value: !Ref ShibbolethUnhealthyTargetsAlarm
