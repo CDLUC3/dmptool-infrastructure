@@ -50,6 +50,9 @@ Parameters:
   CdnDomain:
     Type: 'String'
 
+  JwtSecret:
+    Type: 'String'
+
   CpuSize:
     Type: 'String'
     Default: '2048' # 2 vCPU
@@ -201,19 +204,26 @@ Resources:
 
             # The NextJS base URL
             - Name: 'NEXT_PUBLIC_BASE_URL'
-              Value: !Sub "ui.${Domain}"
+              Value: !Sub "${Domain}"
 
             # The NextJS server endpoint
             - Name: 'NEXT_PUBLIC_SERVER_ENDPOINT'
-              Value: !Sub "ui.${Domain}"
+              Value: !Sub "${Domain}"
 
             # The ApolloServer endpoint for GraphQL queries
             - Name: 'NEXT_PUBLIC_GRAPHQL_SERVER_ENDPOINT'
-              Value: !Sub "ui.${Domain}/graphql"
+              Value: !Sub "${Domain}/graphql"
+
+            - Name: 'SERVER_ENDPOINT'
+              Value: !Sub "https://${Domain}"
 
             # CDN endpoint
             - Name: "CDN_ENDPOINT"
               Value: !Sub "cdn.${CdnDomain}"
+
+            # JWT Secret
+            - Name: 'JWT_SECRET'
+              Value: !Ref JwtSecret
 
   # Container Service definition
   EcsService:

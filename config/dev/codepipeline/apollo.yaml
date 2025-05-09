@@ -23,6 +23,6 @@ parameters:
 
   RepositoryName: 'CDLUC3/dmsp_backend_prototype'
 
-  BranchToMonitor: 'stage'
+  BranchToMonitor: 'development'
 
   SourceOutputArtifactFormat: 'CODEBUILD_CLONE_REF'
