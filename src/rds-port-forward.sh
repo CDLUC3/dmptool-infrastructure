@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 if [ $# -lt 2 ]; then
   echo 'You must specify the environment and a local port'
@@ -6,7 +6,16 @@ if [ $# -lt 2 ]; then
   exit 1
 fi
 
-echo "Note that you must be logged into the correct AWS environment!"
+# if the enviironment is 'dev' login to that env otherwise stg/prd
+if [ "$1" = "dev" ]; then
+  echo "Logging in to dev environment"
+  export AWS_PROFILE=cdl-uc3-dev
+else
+  echo "Logging in to stg/prd environment"
+  export AWS_PROFILE=cdl-uc3-prd
+fi
+
+aws sso login
 
 PREFIX_QUERY="Stacks[0].Outputs[?OutputKey==\`EcsFargateClusterId\`].OutputValue"
 ECS_CLUSTER=$(aws cloudformation describe-stacks --stack-name "dmp-tool-${1}-ecs-cluster" --query $PREFIX_QUERY --output text)
@@ -25,22 +34,11 @@ if [ -z "$ECS_CLUSTER" ]; then
   exit 1
 fi
 
-echo ""
-echo "When you see the 'Waiting for connections' message, you can switch to your"
-echo "local database client (e.g. Sequel Pro) and connect to the database using:"
-echo ""
-echo "   host: localhost"
-echo "   database: $DB_NAME"
-echo "   port: $2"
-echo "   user: $DB_USER"
-echo "   password: $DB_PWD"
-echo ""
-
-cd ~/.cdl-ssm-util || exit
-
 # source from bash if the file exists otherwise from zsh
 if [ -f ~/.zshrc ]; then
   source ~/.zshrc
+elif [ -f ~/.zprofile ]; then
+  source ~/.zprofile
 elif [ -f ~/.bashrc ]; then
   source ~/.bashrc
 elif [ -f ~/.bash_profile ]; then
@@ -52,8 +50,21 @@ else
   exit 1
 fi
 
+cd ~/.cdl-ssm-util || exit
+
+echo ""
+echo "When you see the 'Waiting for connections' message, you can switch to your"
+echo "local database client (e.g. Sequel Pro) and connect to the database using:"
+echo ""
+echo "   host: localhost"
+echo "   database: $DB_NAME"
+echo "   port: $2"
+echo "   user: ******** (see SSM for the actual username)"
+echo "   password: ******** (see SSM for the actual password)"
+echo ""
+
 echo "Preparing to forward port $2 to $DB_HOST:$DB_PORT on cluster $ECS_CLUSTER"
 echo ""
 echo "Select one of the Apollo containers when asked."
 
-python3 session.py port $ECS_CLUSTER $DB_HOST $2:$DB_PORT
+session port $ECS_CLUSTER $DB_HOST $2:$DB_PORT
