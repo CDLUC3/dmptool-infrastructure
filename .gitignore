@@ -6,3 +6,7 @@ dist
 nodejs
 node_modules
 *.zip
+
+# other
+.python-version
+*.swp
