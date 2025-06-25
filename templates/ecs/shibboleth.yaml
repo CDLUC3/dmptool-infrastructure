@@ -18,6 +18,12 @@ Parameters:
   AlbSecGrpId:
     Type: 'String'
 
+  OpenSearchCollection:
+    Type: 'String'
+
+  OpenSearchCollectionArn:
+    Type: 'String'
+
   Env:
     Type: 'String'
     Default: 'dev'
@@ -88,25 +94,6 @@ Resources:
   # Identitity and Access Management (IAM)
   #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_IAM.html
   # -----------------------------------------------------------
-  # Policy to allow SSM Session Manager to access our ECS containers
-  SessionManagerPolicy:
-    Type: 'AWS::IAM::ManagedPolicy'
-    Properties:
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          Effect: 'Allow'
-          Action:
-            - 'ecs:ExecuteCommand'
-            - 'ssmmessages:CreateControlChannel'
-            - 'ssmmessages:CreateDataChannel'
-            - 'ssmmessages:OpenControlChannel'
-            - 'ssmmessages:OpenDataChannel'
-          Resource: '*'
-          Condition:
-            StringEquals:
-              "ecs:container-name": !Ref ContainerName
-
   # Role that grants our containers in the task permission to call AWS APIs
   EcsTaskRole:
     Type: 'AWS::IAM::Role'
@@ -125,7 +112,31 @@ Resources:
         - 'arn:aws:iam::aws:policy/AmazonSSMFullAccess'
         - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
         - 'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'
-        - !Ref SessionManagerPolicy
+      Policies:
+        - PolicyName: 'shibd-aoss'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'aoss:APIAccessAll'
+                Resource:
+                  - !Ref OpenSearchCollectionArn
+        - PolicyName: 'shibd-session-manager'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: 'Allow'
+              Action:
+                - 'ecs:ExecuteCommand'
+                - 'ssmmessages:CreateControlChannel'
+                - 'ssmmessages:CreateDataChannel'
+                - 'ssmmessages:OpenControlChannel'
+                - 'ssmmessages:OpenDataChannel'
+              Resource: '*'
+              Condition:
+                StringEquals:
+                  "ecs:container-name": !Ref ContainerName
 
   # -----------------------------------------------------------
   # Elastic Container Service (ECS) - Containers that host the application
@@ -165,18 +176,49 @@ Resources:
           #   Retries: 3
           #   StartPeriod: 20
           LogConfiguration:
-            LogDriver: 'awslogs'
+            LogDriver: 'awsfirelens'
             Options:
-              awslogs-region: !Ref AWS::Region
-              awslogs-create-group: true
-              awslogs-group: !Ref AWS::StackName
-              awslogs-stream-prefix: !Ref ContainerName
+              Name: 'opensearch'
+              Host: !Sub '${OpenSearchCollection}.${AWS::Region}.aoss.amazonaws.com'
+              Port: 443
+              # Index name MUST be lower case!
+              Index: !Sub "dmp-log-${Env}-shibd"
+              Aws_Auth: 'On'
+              Aws_Region: !Sub '${AWS::Region}'
+              Aws_Service_Name: 'aoss'
+              Trace_Error: 'On'
+              Trace_Output: 'On'
+              Suppress_Type_Name: 'On'
+              tls: 'On'
+              retry_limit: 2
           PortMappings:
             # ALB port (The port we are listening on)
             - ContainerPort: !Ref AppPort
               Protocol: 'tcp'
           # Environment:
             # TODO: Add environment variables here
+
+        # The AWS Firelens sidecar container to send application logs to opensearch
+        - Name: !Sub "${ContainerName}Firelens${Env}"
+          Image: "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
+          Cpu: 0
+          MemoryReservation: 51
+          Essential: true
+          User: 0
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Sub "/ecs/firelens-${ContainerName}-${Env}"
+              mode: 'non-blocking'
+              awslogs-create-group: true
+              max-buffer-size: '25m'
+              awslogs-region: !Sub '${AWS::Region}'
+              awslogs-stream-prefix: 'firelens'
+          FirelensConfiguration:
+            Type: 'fluentbit'
+          Environment:
+            - Name: 'FLB_LOG_LEVEL'
+              Value: 'debug'
 
   # Container Service definition
   EcsService:
