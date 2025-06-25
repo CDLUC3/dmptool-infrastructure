@@ -18,6 +18,12 @@ Parameters:
   AlbSecGrpId:
     Type: 'String'
 
+  OpenSearchCollection:
+    Type: 'String'
+
+  OpenSearchCollectionArn:
+    Type: 'String'
+
   Env:
     Type: 'String'
     Default: 'dev'
@@ -223,25 +229,6 @@ Resources:
   # Identitity and Access Management (IAM)
   #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_IAM.html
   # -----------------------------------------------------------
-  # Policy to allow SSM Session Manager to access our ECS containers
-  SessionManagerPolicy:
-    Type: 'AWS::IAM::ManagedPolicy'
-    Properties:
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          Effect: 'Allow'
-          Action:
-            - 'ecs:ExecuteCommand'
-            - 'ssmmessages:CreateControlChannel'
-            - 'ssmmessages:CreateDataChannel'
-            - 'ssmmessages:OpenControlChannel'
-            - 'ssmmessages:OpenDataChannel'
-          Resource: '*'
-          Condition:
-            StringEquals:
-              "ecs:container-name": !Ref ContainerName
-
   # Role that grants our containers in the task permission to call AWS APIs
   EcsTaskRole:
     Type: 'AWS::IAM::Role'
@@ -263,7 +250,31 @@ Resources:
         - 'arn:aws:iam::aws:policy/AmazonSESFullAccess'
         - 'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'
         - 'arn:aws:iam::aws:policy/AmazonElastiCacheFullAccess'
-        - !Ref SessionManagerPolicy
+      Policies:
+        - PolicyName: 'apollo-aoss'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'aoss:APIAccessAll'
+                Resource:
+                  - !Ref OpenSearchCollectionArn
+        - PolicyName: 'apollo-session-manager'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: 'Allow'
+              Action:
+                - 'ecs:ExecuteCommand'
+                - 'ssmmessages:CreateControlChannel'
+                - 'ssmmessages:CreateDataChannel'
+                - 'ssmmessages:OpenControlChannel'
+                - 'ssmmessages:OpenDataChannel'
+              Resource: '*'
+              Condition:
+                StringEquals:
+                  "ecs:container-name": !Ref ContainerName
 
   # -----------------------------------------------------------
   # Elastic Container Service (ECS) - Containers that host the application
@@ -286,6 +297,7 @@ Resources:
       RequiresCompatibilities:
         - 'FARGATE'
       ContainerDefinitions:
+        # The application container
         - Image: !Sub "${EcrRepositoryUri}:${EcrImageTag}"
           DisableNetworking: false
           Essential: true
@@ -300,12 +312,21 @@ Resources:
           #   Retries: 2
           #   Timeout: 3
           LogConfiguration:
-            LogDriver: 'awslogs'
+            LogDriver: 'awsfirelens'
             Options:
-              awslogs-region: !Ref AWS::Region
-              awslogs-create-group: true
-              awslogs-group: !Ref AWS::StackName
-              awslogs-stream-prefix: !Ref ContainerName
+              Name: 'opensearch'
+              Host: !Sub '${OpenSearchCollection}.${AWS::Region}.aoss.amazonaws.com'
+              Port: 443
+              # Index name MUST be lower case!
+              Index: !Sub "dmp-log-${Env}-apollo"
+              Aws_Auth: 'On'
+              Aws_Region: !Sub '${AWS::Region}'
+              Aws_Service_Name: 'aoss'
+              Trace_Error: 'On'
+              Trace_Output: 'On'
+              Suppress_Type_Name: 'On'
+              tls: 'On'
+              retry_limit: 2
           PortMappings:
             # SES SMTP port
             - ContainerPort: 465
@@ -344,6 +365,9 @@ Resources:
             # The URL for DMP IDs (e.g. https://doi.org/11.22222/A1)
             - Name: 'DMSP_BASE_URL'
               Value: !Sub "${DoiBase}${DoiShoulder}"
+
+            - Name: 'DMP_ID_SHOULDER'
+              Value: !Ref DoiShoulder
 
             # The loggin level you want the application use
             - Name: 'LOG_LEVEL'
@@ -443,6 +467,28 @@ Resources:
             - Name: 'HELPDESK_EMAIL_ADDRESS'
               Value: !Ref HelpdeskEmail
 
+        # The AWS Firelens sidecar container to send application logs to opensearch
+        - Name: !Sub "${ContainerName}Firelens${Env}"
+          Image: "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
+          Cpu: 0
+          MemoryReservation: 51
+          Essential: true
+          User: 0
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Sub "/ecs/firelens-${ContainerName}-${Env}"
+              mode: 'non-blocking'
+              awslogs-create-group: true
+              max-buffer-size: '25m'
+              awslogs-region: !Sub '${AWS::Region}'
+              awslogs-stream-prefix: 'firelens'
+          FirelensConfiguration:
+            Type: 'fluentbit'
+          Environment:
+            - Name: 'FLB_LOG_LEVEL'
+              Value: 'debug'
+
   # Container Service definition
   EcsService:
     Type: 'AWS::ECS::Service'
@@ -484,6 +530,9 @@ Resources:
       TaskDefinition: !Ref EcsTaskDefinition
 
 Outputs:
+  EcsTaskRoleArn:
+    Value: !GetAtt EcsTaskRole.Arn
+
   EcsServiceArn:
     Value: !Ref EcsService
 
