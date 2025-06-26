@@ -33,6 +33,12 @@ Sceptre structures your code into two primary folders: `config` and `templates`
 
 ## Notes about Sceptre
 
+### Installation
+Run the following command to install Sceptre:
+```bash
+pip install sceptre sceptre-ssm-resolver
+```
+
 ### Referencing variables
 
 Sceptre allows you to reference variables in several ways. Note that you can use many of these within `config.yaml` files as well.

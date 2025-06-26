@@ -7,6 +7,9 @@ nodejs
 node_modules
 *.zip
 
+# IDE files
+.idea
+
 # other
 .python-version
 *.swp

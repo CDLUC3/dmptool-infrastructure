@@ -122,6 +122,19 @@ Resources:
       VersioningConfiguration:
         Status: !Ref S3PrivateVersioning
 
+  # S3 Bucket that stores assets for the DMP Tool related works matching
+  S3RelatedWorksBucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: 'Retain'
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-related-works"
+      AccessControl: 'Private'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
 Outputs:
   S3LogsBucketID:
     Value: !Ref S3LogsBucket
@@ -158,3 +171,12 @@ Outputs:
 
   S3PrivateBucketARN:
     Value: !GetAtt S3PrivateBucket.Arn
+
+  S3RelatedWorksBucketID:
+    Value: !Ref S3RelatedWorksBucket
+
+  S3RelatedWorksBucketURI:
+    Value: !Sub "s3://${S3RelatedWorksBucket}"
+
+  S3RelatedWorksBucketARN:
+    Value: !GetAtt S3RelatedWorksBucket.Arn
