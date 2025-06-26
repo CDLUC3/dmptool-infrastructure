@@ -23,6 +23,9 @@ parameters:
   AlbTargetGroupArn: !stack_output dev/alb.yaml::ShibbolethTargetGroupArn
   AlbSecGrpId: !stack_output dev/alb.yaml::AlbSecurityGroupId
 
+  OpenSearchCollection: !stack_attr sceptre_user_data.opensearch_log_collection
+  OpenSearchCollectionArn: !stack_attr sceptre_user_data.opensearch_log_collection_arn
+
   EcsDesiredServiceCount: '1'
 
   CpuSize: '2048'
