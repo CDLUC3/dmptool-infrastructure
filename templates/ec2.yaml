@@ -1,0 +1,155 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: 'An EC2 instance for development and testing'
+
+Parameters:
+  ImageId:
+    Type: AWS::EC2::Image::Id
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+
+  S3RelatedWorksBucketID:
+    Type: String
+
+  InstanceType:
+    Type: String
+    Default: c5ad.large # cheapest AMD instance with NVMe storage
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: ""
+
+  SshIp:
+    Type: String
+    Description: IP address with /32 suffix (e.g. 203.0.113.42/32)
+    Default: ""
+
+Conditions:
+  HasKeyName: !Not [ !Equals [ !Ref KeyName, "" ] ]
+  HasSshIP: !Not [ !Equals [ !Ref SshIp, "" ] ]
+
+Resources:
+  DevEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      Tags:
+        # Sets EC2 instance name
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-dev'
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref ImageId
+      KeyName: !If [ HasKeyName, !Ref KeyName, !Ref "AWS::NoValue" ]
+      VpcId: !Ref VpcId
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds:
+        - !Ref EC2SecurityGroup
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda # Amazon Linux root volume
+          Ebs:
+            VolumeType: gp3
+            DeleteOnTermination: true
+            VolumeSize: 20 # GB
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          
+          cat > /tmp/setup-ec2-instance.sh << SCRIPT
+            #!/bin/bash
+            set -euxo pipefail
+          
+            # Refresh local list of available packages
+            dnf update -y
+            
+            # Install Docker
+            dnf install -y docker
+            systemctl enable --now docker
+            usermod -a -G docker ec2-user
+  
+            # Give Docker access to ECR
+            dnf install -y amazon-ecr-credential-helper
+            mkdir -p /home/ec2-user/.docker
+            chown ec2-user:ec2-user /home/ec2-user/.docker
+            echo '{"credsStore":"ecr-login"}' > /home/ec2-user/.docker/config.json
+            chown ec2-user:ec2-user /home/ec2-user/.docker/config.json
+            
+            # Mount disk to /data dir
+            mkfs.ext4 /dev/nvme1n1
+            mkdir -p /data
+            mount /dev/nvme1n1 /data
+            echo "/dev/nvme1n1 /data ext4 defaults,nofail 0 2" >> /etc/fstab
+            chown ec2-user:ec2-user /data
+          SCRIPT
+
+          # Run the script only once on the instance
+          cloud-init-per instance setup-my-script /bin/bash /tmp/setup-ec2-instance.sh
+
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-security-group'
+      GroupDescription: Allow SSH and HTTP
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !If [ HasSshIP, !Ref SshIp, !Ref "AWS::NoValue" ]
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub '${AWS::StackName}-instance-profile'
+      Roles: [ !Ref EC2InstanceRole ]
+
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-instance-role'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+
+      Policies:
+        - PolicyName: S3AccessObjects
+          PolicyDocument:
+            Statement:
+              Effect: Allow
+              Action:
+                - 's3:PutObject'
+                - 's3:GetObject'
+                - 's3:DeleteObject'
+              Resource:
+                - 'arn:aws:s3:::dmpworks-test/*'
+                - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}/*'
+        - PolicyName: S3ListBucket
+          PolicyDocument:
+            Statement:
+              Effect: Allow
+              Action:
+                - 's3:ListBucket'
+              Resource:
+                - 'arn:aws:s3:::dmpworks-test'
+                - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}'
+
+      ManagedPolicyArns:
+        # Allow EC2 instance to access ECR
+        - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
+
+Outputs:
+  SecurityGroupId:
+    Value: !Ref EC2SecurityGroup
