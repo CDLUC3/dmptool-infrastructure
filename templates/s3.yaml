@@ -53,11 +53,35 @@ Resources:
           - 
             QueueConfigurations: 
               - Event: s3:ObjectCreated:*
-                #Filter:
-                #  S3Key:
-                #    Rules:
-                #      Name: prefix
-                #      Value: folder1/
+                Queue: !Ref S3LogsEventNotificationQueueArn
+          - {}
+
+  # S3 Bucket that stores WAF logs
+  # Bucket name prefix must be 'aws-waf-logs-'
+  S3WafLogsBucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: 'Retain'
+    Properties:
+      BucketName: !Sub "aws-waf-logs-${AWS::StackName}"
+      AccessControl: 'Private'
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: ObjectWriter
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: !Ref S3LogsObjectLifeSpan
+            Status: 'Enabled'
+      NotificationConfiguration:
+        !If
+          - SetLogsEventNotifications
+          - 
+            QueueConfigurations: 
+              - Event: s3:ObjectCreated:*
                 Queue: !Ref S3LogsEventNotificationQueueArn
           - {}
 
@@ -107,6 +131,15 @@ Outputs:
 
   S3LogsBucketARN:
     Value: !GetAtt S3LogsBucket.Arn
+
+  S3WafLogsBucketID:
+    Value: !Ref S3WafLogsBucket
+
+  S3WafLogsBucketURI:
+    Value: !Sub "s3://${S3WafLogsBucket}"
+
+  S3WafLogsBucketARN:
+    Value: !GetAtt S3WafLogsBucket.Arn
 
   S3CloudFrontBucketID:
     Value: !Ref S3CloudFrontBucket
