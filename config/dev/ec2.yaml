@@ -1,0 +1,9 @@
+template:
+  path: 'ec2.yaml'
+  type: 'file'
+
+parameters:
+  ImageId: !ssm '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
+  VpcId: !stack_attr sceptre_user_data.vpc_id
+  SubnetId: !stack_attr sceptre_user_data.public_subnet_a
+  S3RelatedWorksBucketID: !stack_output dev/s3.yaml::S3RelatedWorksBucketID
