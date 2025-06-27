@@ -19,10 +19,6 @@ Parameters:
     Type: String
     Default: c5ad.large # cheapest AMD instance with NVMe storage
 
-Conditions:
-  HasKeyName: !Not [ !Equals [ !Ref KeyName, "" ] ]
-  HasSshIP: !Not [ !Equals [ !Ref SshIp, "" ] ]
-
 Resources:
   DevEC2Instance:
     Type: AWS::EC2::Instance
@@ -31,9 +27,10 @@ Resources:
         # Sets EC2 instance name
         - Key: Name
           Value: !Sub '${AWS::StackName}-dev'
+#        - Key: SSMSessionRunAs
+#          Value: 'ec2-user'
       InstanceType: !Ref InstanceType
       ImageId: !Ref ImageId
-      KeyName: !If [ HasKeyName, !Ref KeyName, !Ref "AWS::NoValue" ]
       VpcId: !Ref VpcId
       SubnetId: !Ref SubnetId
       SecurityGroupIds:
