@@ -6,7 +6,7 @@ parameters:
   S3LogsObjectLifeSpan: '30'
 
   # sqs queue must be available before trying to configure it here
-  S3LogsEventNotificationQueueArn: !stack_output_external uc3-ops-dev-osis-pipelines::Uc3OpsOsisPipelineSqsQueue
+  S3LogsEventNotificationQueueArn: !stack_output_external uc3-ops-dev-osis-pipelines::DmpOsisPipelineSqsQueue
 
   S3CloudFrontVersioning: Enabled
 
