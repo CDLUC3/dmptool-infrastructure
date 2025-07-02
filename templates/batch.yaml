@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Batch used to process datasets for DMP Tool Related Works Matching'
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+
+Resources:
+  BatchComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      ComputeEnvironmentName: !Sub "${AWS::StackName}-ec2-compute-env"
+      Type: MANAGED
+      ServiceRole: !Ref BatchServiceRole
+      ComputeResources:
+        Type: EC2
+        AllocationStrategy: BEST_FIT_PROGRESSIVE
+        MinvCpus: 0
+        MaxvCpus: 256
+        DesiredvCpus: 0
+        InstanceTypes:
+          - optimal
+        Subnets:
+          - !Ref SubnetId
+        SecurityGroupIds:
+          - !Ref BatchSecurityGroup
+        InstanceRole: !Ref BatchInstanceProfile  #!Ref BatchInstanceRole
+
+  BatchServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-ec2-service-role'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: batch.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole'
+
+  # Need to add this security group to ecr-endpoint in the VPC
+  BatchSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-ec2-security-group'
+      GroupDescription: Allow SSH and HTTP
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+
+  BatchInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub '${AWS::StackName}-ec2-instance-profile'
+      Roles:
+        - !Ref BatchInstanceRole
+
+  BatchInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-ec2-instance-role'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: batch.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role'
+
+  BatchJobQueue:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      JobQueueName: !Sub '${AWS::StackName}-ec2-job-queue'
+      ComputeEnvironmentOrder:
+        - Order: 1
+          ComputeEnvironment: !Ref BatchComputeEnvironment
+      State: ENABLED
+      Priority: 1
+
+#Outputs:
