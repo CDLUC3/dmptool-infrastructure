@@ -47,7 +47,7 @@ Resources:
           #!/bin/bash
           set -euxo pipefail
           
-          cat > /tmp/setup-ec2-instance.sh << SCRIPT
+          cat > /tmp/setup-instance.sh << SCRIPT
             #!/bin/bash
             set -euxo pipefail
           
@@ -75,7 +75,7 @@ Resources:
           SCRIPT
 
           # Run the script only once on the instance
-          cloud-init-per instance setup-my-script /bin/bash /tmp/setup-ec2-instance.sh
+          cloud-init-per instance setup-instance /bin/bash /tmp/setup-instance.sh
 
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup

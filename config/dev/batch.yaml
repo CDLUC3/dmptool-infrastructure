@@ -5,3 +5,5 @@ template:
 parameters:
   VpcId: !stack_attr sceptre_user_data.vpc_id
   SubnetId: !stack_attr sceptre_user_data.public_subnet_a
+  EcrRepositoryName: !stack_output dev/ecr.yaml::EcrRepositoryName
+  S3RelatedWorksBucketID: !stack_output dev/s3.yaml::S3RelatedWorksBucketID

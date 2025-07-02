@@ -8,26 +8,76 @@ Parameters:
   SubnetId:
     Type: AWS::EC2::Subnet::Id
 
+  EcrRepositoryName:
+    Type: String
+
+  S3RelatedWorksBucketID:
+    Type: String
+
+  EcrImageName:
+    Type: String
+    Default: 'dmpworks-x86'
+
 Resources:
   BatchComputeEnvironment:
     Type: AWS::Batch::ComputeEnvironment
     Properties:
-      ComputeEnvironmentName: !Sub "${AWS::StackName}-ec2-compute-env"
+      ComputeEnvironmentName: !Sub '${AWS::StackName}-ec2-compute-env'
       Type: MANAGED
       ServiceRole: !Ref BatchServiceRole
       ComputeResources:
         Type: EC2
-        AllocationStrategy: BEST_FIT_PROGRESSIVE
+        AllocationStrategy: BEST_FIT # https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-allocationstrategy
         MinvCpus: 0
-        MaxvCpus: 256
+        MaxvCpus: 128
         DesiredvCpus: 0
         InstanceTypes:
-          - optimal
+          - c5ad.large # 2 vCPUs, 4 GiB memory. ROR and OpenAlex funders. Small cheap instance with NVMe.
+          - m5dn.4xlarge # 16 vCPUs, 64 GiB memory. Crossref, DataCite.
+          - r5dn.8xlarge # 32 vCPUs, 256 GiB memory. OpenAlex Works, SQL Mesh.
+        LaunchTemplate:
+          LaunchTemplateName: !Ref BatchLaunchTemplate
+          Version: !GetAtt BatchLaunchTemplate.LatestVersionNumber
         Subnets:
           - !Ref SubnetId
         SecurityGroupIds:
           - !Ref BatchSecurityGroup
         InstanceRole: !Ref BatchInstanceProfile  #!Ref BatchInstanceRole
+
+  BatchLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${AWS::StackName}-launch-template'
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda # Amazon Linux root volume
+            Ebs:
+              VolumeType: gp3
+              DeleteOnTermination: true
+              VolumeSize: 30 # GB
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -euxo pipefail
+
+            cat > /tmp/setup-instance.sh << SCRIPT
+              #!/bin/bash
+              set -euxo pipefail
+
+              # Refresh local list of available packages
+              dnf update -y
+            
+              # Install any required system dependencies
+
+              # Mount disk to /data dir
+              mkfs.ext4 /dev/nvme1n1
+              mkdir -p /data
+              mount /dev/nvme1n1 /data
+              echo "/dev/nvme1n1 /data ext4 defaults,nofail 0 2" >> /etc/fstab
+            SCRIPT
+
+            # Run the script only once on the instance
+            cloud-init-per instance setup-instance /bin/bash /tmp/setup-instance.sh
 
   BatchServiceRole:
     Type: AWS::IAM::Role
@@ -86,5 +136,69 @@ Resources:
           ComputeEnvironment: !Ref BatchComputeEnvironment
       State: ENABLED
       Priority: 1
+
+  BatchJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-job-role'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+
+      Policies:
+        - PolicyName: S3AccessObjects
+          PolicyDocument:
+            Statement:
+              Effect: Allow
+              Action:
+                - 's3:PutObject'
+                - 's3:GetObject'
+                - 's3:DeleteObject'
+              Resource:
+                - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}/*'
+        - PolicyName: S3ListBucket
+          PolicyDocument:
+            Statement:
+              Effect: Allow
+              Action:
+                - 's3:ListBucket'
+              Resource:
+                - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}'
+
+      ManagedPolicyArns:
+        # Allow EC2 instance to access ECR
+        - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
+
+  TestJob:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      Type: Container
+      JobDefinitionName: !Sub '${AWS::StackName}-test-job'
+      PlatformCapabilities:
+        - EC2
+      ContainerProperties:
+        Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepositoryName}:${EcrImageName}'
+        Vcpus: 1
+        Memory: 1
+        Volumes:
+          - Host:
+              SourcePath: /data
+            Name: data-volume
+        MountPoints:
+          - SourceVolume: data-volume
+            ContainerPath: /data
+            ReadOnly: false
+        JobRoleArn: !Ref BatchJobRole
+        Command:
+          - /bin/bash
+          - -c
+          - |
+            echo "hello"
+            ls /
+            echo "world"
 
 #Outputs:
