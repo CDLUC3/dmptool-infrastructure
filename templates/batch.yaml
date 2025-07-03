@@ -174,8 +174,6 @@ Resources:
                 - 's3:DeleteObject'
                 - 's3:ListBucket'
               Resource:
-                - 'arn:aws:s3:::dmpworks-test'
-                - 'arn:aws:s3:::dmpworks-test/*'
                 - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}'
                 - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}/*'
       ManagedPolicyArns:
