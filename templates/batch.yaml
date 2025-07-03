@@ -22,11 +22,15 @@ Resources:
   BatchComputeEnvironment:
     Type: AWS::Batch::ComputeEnvironment
     Properties:
-      ComputeEnvironmentName: !Sub '${AWS::StackName}-ec2-compute-env'
+      # ComputeEnvironmentName: don't give it a name, because if it needs to be
+      # updated, it deletes and recreates the compute environment, however, it
+      # can't do this with a static name.
       Type: MANAGED
       ServiceRole: !Ref BatchServiceRole
       ComputeResources:
         Type: EC2
+        Ec2Configuration:
+          - ImageType: ECS_AL2023
         AllocationStrategy: BEST_FIT # https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-allocationstrategy
         MinvCpus: 0
         MaxvCpus: 128
@@ -36,13 +40,13 @@ Resources:
           - m5dn.4xlarge # 16 vCPUs, 64 GiB memory. Crossref, DataCite.
           - r5dn.8xlarge # 32 vCPUs, 256 GiB memory. OpenAlex Works, SQL Mesh.
         LaunchTemplate:
-          LaunchTemplateName: !Ref BatchLaunchTemplate
-          Version: !GetAtt BatchLaunchTemplate.LatestVersionNumber
+          LaunchTemplateId: !Ref BatchLaunchTemplate
+          Version: $Latest
         Subnets:
           - !Ref SubnetId
         SecurityGroupIds:
           - !Ref BatchSecurityGroup
-        InstanceRole: !Ref BatchInstanceProfile  #!Ref BatchInstanceRole
+        InstanceRole: !Ref BatchInstanceProfile
 
   BatchLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -57,27 +61,38 @@ Resources:
               VolumeSize: 30 # GB
         UserData:
           Fn::Base64: !Sub |
+            MIME-Version: 1.0
+            Content-Type: multipart/mixed; boundary="==BOUNDARY=="
+            
+            --==BOUNDARY==
+            Content-Type: text/x-shellscript; charset="us-ascii"
+            
             #!/bin/bash
-            set -euxo pipefail
+            set -uxo pipefail
 
             cat > /tmp/setup-instance.sh << SCRIPT
               #!/bin/bash
-              set -euxo pipefail
+              set -uxo pipefail
 
               # Refresh local list of available packages
               dnf update -y
             
               # Install any required system dependencies
+              # TODO
 
               # Mount disk to /data dir
-              mkfs.ext4 /dev/nvme1n1
-              mkdir -p /data
-              mount /dev/nvme1n1 /data
-              echo "/dev/nvme1n1 /data ext4 defaults,nofail 0 2" >> /etc/fstab
+              if lsblk | grep -q nvme1n1; then
+                mkfs.ext4 /dev/nvme1n1
+                mkdir -p /data
+                mount /dev/nvme1n1 /data
+                echo "/dev/nvme1n1 /data ext4 defaults,nofail 0 2" >> /etc/fstab
+              fi
             SCRIPT
 
             # Run the script only once on the instance
             cloud-init-per instance setup-instance /bin/bash /tmp/setup-instance.sh
+            
+            --==BOUNDARY==--
 
   BatchServiceRole:
     Type: AWS::IAM::Role
@@ -122,7 +137,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service: batch.amazonaws.com
+              Service: ec2.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role'
@@ -148,7 +163,6 @@ Resources:
             Principal:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
-
       Policies:
         - PolicyName: S3AccessObjects
           PolicyDocument:
@@ -168,7 +182,6 @@ Resources:
                 - 's3:ListBucket'
               Resource:
                 - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}'
-
       ManagedPolicyArns:
         # Allow EC2 instance to access ECR
         - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
@@ -183,7 +196,7 @@ Resources:
       ContainerProperties:
         Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepositoryName}:${EcrImageName}'
         Vcpus: 1
-        Memory: 1
+        Memory: 1024
         Volumes:
           - Host:
               SourcePath: /data
