@@ -108,7 +108,7 @@ Resources:
             Action: sts:AssumeRole
 
       Policies:
-        - PolicyName: S3AccessObjects
+        - PolicyName: S3Policy
           PolicyDocument:
             Statement:
               Effect: Allow
@@ -116,18 +116,12 @@ Resources:
                 - 's3:PutObject'
                 - 's3:GetObject'
                 - 's3:DeleteObject'
-              Resource:
-                - 'arn:aws:s3:::dmpworks-test/*'
-                - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}/*'
-        - PolicyName: S3ListBucket
-          PolicyDocument:
-            Statement:
-              Effect: Allow
-              Action:
                 - 's3:ListBucket'
               Resource:
                 - 'arn:aws:s3:::dmpworks-test'
+                - 'arn:aws:s3:::dmpworks-test/*'
                 - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}'
+                - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}/*'
 
       ManagedPolicyArns:
         # Allow EC2 instance to access ECR
