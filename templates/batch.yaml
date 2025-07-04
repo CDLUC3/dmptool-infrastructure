@@ -180,11 +180,11 @@ Resources:
         # Allow EC2 instance to access ECR
         - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
 
-  TestJob:
+  DMPWorksJob:
     Type: AWS::Batch::JobDefinition
     Properties:
       Type: Container
-      JobDefinitionName: !Sub '${AWS::StackName}-test-job'
+      JobDefinitionName: !Sub '${AWS::StackName}-dmpworks-job'
       PlatformCapabilities:
         - EC2
       ContainerProperties:
@@ -203,9 +203,6 @@ Resources:
         Command:
           - /bin/bash
           - -c
-          - |
-            echo "hello"
-            ls /
-            echo "world"
+          - which dmpworks
 
 #Outputs:
