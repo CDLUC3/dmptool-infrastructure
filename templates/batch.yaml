@@ -97,7 +97,7 @@ Resources:
   BatchServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${AWS::StackName}-ec2-service-role'
+      RoleName: !Sub '${AWS::StackName}-service-role'
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -112,8 +112,8 @@ Resources:
   BatchSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub '${AWS::StackName}-ec2-security-group'
-      GroupDescription: Allow SSH and HTTP
+      GroupName: !Sub '${AWS::StackName}-security-group'
+      GroupDescription: 'AWS Batch security group'
       VpcId: !Ref VpcId
       SecurityGroupEgress:
         - IpProtocol: -1
@@ -124,14 +124,14 @@ Resources:
   BatchInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
-      InstanceProfileName: !Sub '${AWS::StackName}-ec2-instance-profile'
+      InstanceProfileName: !Sub '${AWS::StackName}-instance-profile'
       Roles:
         - !Ref BatchInstanceRole
 
   BatchInstanceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${AWS::StackName}-ec2-instance-role'
+      RoleName: !Sub '${AWS::StackName}-instance-role'
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -145,7 +145,7 @@ Resources:
   BatchJobQueue:
     Type: AWS::Batch::JobQueue
     Properties:
-      JobQueueName: !Sub '${AWS::StackName}-ec2-job-queue'
+      JobQueueName: !Sub '${AWS::StackName}-job-queue'
       ComputeEnvironmentOrder:
         - Order: 1
           ComputeEnvironment: !Ref BatchComputeEnvironment
@@ -166,6 +166,7 @@ Resources:
       Policies:
         - PolicyName: S3Policy
           PolicyDocument:
+            Version: 2012-10-17
             Statement:
               Effect: Allow
               Action:
