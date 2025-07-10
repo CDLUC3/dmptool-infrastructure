@@ -1,0 +1,207 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Batch used to process datasets for DMP Tool Related Works Matching'
+
+Parameters:
+  VpcId:
+    Type: 'AWS::EC2::VPC::Id'
+
+  SubnetId:
+    Type: 'AWS::EC2::Subnet::Id'
+
+  SecurityGroupID:
+    Type: 'String'
+
+  EcrRepositoryName:
+    Type: 'String'
+
+  S3RelatedWorksBucketID:
+    Type: 'String'
+
+  EcrImageName:
+    Type: 'String'
+    Default: 'dmpworks-x86'
+
+Resources:
+  BatchComputeEnvironment:
+    Type: 'AWS::Batch::ComputeEnvironment'
+    DependsOn:
+      - BatchServiceRole
+      - BatchLaunchTemplate
+      - BatchInstanceProfile
+    Properties:
+      # ComputeEnvironmentName: don't give it a name, because if it needs to be
+      # updated, it deletes and recreates the compute environment, however, it
+      # can't do this with a static name.
+      Type: 'MANAGED'
+      ServiceRole: !Ref BatchServiceRole
+      ComputeResources:
+        Type: 'EC2'
+        Ec2Configuration:
+          - ImageType: 'ECS_AL2023'
+        AllocationStrategy: 'BEST_FIT' # https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-allocationstrategy
+        MinvCpus: 0
+        MaxvCpus: 128
+        DesiredvCpus: 0
+        InstanceTypes:
+          - 'c5ad.large' # 2 vCPUs, 4 GiB memory. ROR and OpenAlex funders. Small cheap instance with NVMe.
+          - 'm5dn.4xlarge' # 16 vCPUs, 64 GiB memory. Crossref, DataCite.
+          - 'r5dn.8xlarge' # 32 vCPUs, 256 GiB memory. OpenAlex Works, SQL Mesh.
+        LaunchTemplate:
+          LaunchTemplateId: !Ref BatchLaunchTemplate
+          Version: $Latest
+        Subnets:
+          - !Ref SubnetId
+        SecurityGroupIds:
+          - !Ref SecurityGroupID
+        InstanceRole: !Ref BatchInstanceProfile
+
+  BatchLaunchTemplate:
+    Type: 'AWS::EC2::LaunchTemplate'
+    Properties:
+      LaunchTemplateName: !Sub '${AWS::StackName}-launch-template'
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - DeviceName: '/dev/xvda' # Amazon Linux root volume
+            Ebs:
+              VolumeType: 'gp3'
+              DeleteOnTermination: true
+              VolumeSize: 30 # GB
+        UserData:
+          Fn::Base64: !Sub |
+            MIME-Version: 1.0
+            Content-Type: multipart/mixed; boundary="==BOUNDARY=="
+            
+            --==BOUNDARY==
+            Content-Type: text/x-shellscript; charset="us-ascii"
+            
+            #!/bin/bash
+            set -uxo pipefail
+
+            cat > /tmp/setup-instance.sh << SCRIPT
+              #!/bin/bash
+              set -uxo pipefail
+
+              # Refresh local list of available packages
+              dnf update -y
+            
+              # Install any required system dependencies
+              # TODO
+
+              # Mount disk to /data dir
+              if lsblk | grep -q nvme1n1; then
+                mkfs.ext4 /dev/nvme1n1
+                mkdir -p /data
+                mount /dev/nvme1n1 /data
+                echo "/dev/nvme1n1 /data ext4 defaults,nofail 0 2" >> /etc/fstab
+              fi
+            SCRIPT
+
+            # Run the script only once on the instance
+            cloud-init-per instance setup-instance /bin/bash /tmp/setup-instance.sh
+            
+            --==BOUNDARY==--
+
+  BatchServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-service-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service: 'batch.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole'
+
+  BatchInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    DependsOn:
+      - BatchInstanceRole
+    Properties:
+      InstanceProfileName: !Sub '${AWS::StackName}-instance-profile'
+      Roles:
+        - !Ref BatchInstanceRole
+
+  BatchInstanceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-instance-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service: 'ec2.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role'
+
+  BatchJobQueue:
+    Type: 'AWS::Batch::JobQueue'
+    DependsOn:
+      - BatchComputeEnvironment
+    Properties:
+      JobQueueName: !Sub '${AWS::StackName}-job-queue'
+      ComputeEnvironmentOrder:
+        - Order: 1
+          ComputeEnvironment: !Ref BatchComputeEnvironment
+      State: 'ENABLED'
+      Priority: 1
+
+  BatchJobRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-job-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service: 'ecs-tasks.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: 'S3Policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: 'Allow'
+              Action:
+                - 's3:PutObject'
+                - 's3:GetObject'
+                - 's3:DeleteObject'
+                - 's3:ListBucket'
+              Resource:
+                - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}'
+                - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}/*'
+      ManagedPolicyArns:
+        # Allow EC2 instance to access ECR
+        - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
+
+  DMPWorksJob:
+    Type: 'AWS::Batch::JobDefinition'
+    DependsOn:
+      - BatchJobRole
+    Properties:
+      Type: 'Container'
+      JobDefinitionName: !Sub '${AWS::StackName}-dmpworks-job'
+      PlatformCapabilities:
+        - 'EC2'
+      ContainerProperties:
+        Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepositoryName}:${EcrImageName}'
+        Vcpus: 1
+        Memory: 1024
+        Volumes:
+          - Host:
+              SourcePath: '/data'
+            Name: 'data-volume'
+        MountPoints:
+          - SourceVolume: 'data-volume'
+            ContainerPath: '/data'
+            ReadOnly: false
+        JobRoleArn: !Ref BatchJobRole
+        Command:
+          - '/bin/bash'
+          - '-c'
+          - 'dmpworks --version'
