@@ -1,3 +1,8 @@
+[SERVICE]
+    flush        1
+    log_level    debug
+    daemon       Off
+    parsers_file /fluent-bit/etc/parsers.conf
 
 [INPUT]
     Name tcp
@@ -15,14 +20,20 @@
     Listen 127.0.0.1
     Port 24224
 
-[FILTER]
-    Name record_modifier
+#[FILTER]
+#    Name record_modifier
+#    Match *
+#    Record ecs_cluster dmp-tool-dev-ecs-cluster-Fargate
+#    Record ecs_task_arn arn:aws:ecs:us-west-2:671846987296:task/dmp-tool-dev-ecs-cluster-Fargate/316edd12af6e4123b21442b2d24b729c
+#    Record ecs_task_definition dmp-tool-dev-ecs-apollo-apollo-server:57
+
+[Filter]
+    Name Parser
     Match *
-    Record ecs_cluster dmp-tool-dev-ecs-cluster-Fargate
-    Record ecs_task_arn arn:aws:ecs:us-west-2:671846987296:task/dmp-tool-dev-ecs-cluster-Fargate/316edd12af6e4123b21442b2d24b729c
-    Record ecs_task_definition dmp-tool-dev-ecs-apollo-apollo-server:57
-
-
+    Parser docker
+    Key_Name log
+    Reserve_Data On
+    Preserve_Key On
 
 [OUTPUT]
     Name null
