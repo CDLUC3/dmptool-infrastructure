@@ -1,0 +1,56 @@
+[SERVICE]
+    flush        1
+    log_level    debug
+    daemon       Off
+    parsers_file /fluent-bit/etc/parsers.conf
+
+[INPUT]
+    Name tcp
+    Listen 127.0.0.1
+    Port 8877
+    Tag firelens-healthcheck
+
+[INPUT]
+    Name forward
+    Mem_Buf_Limit 25MB
+    unix_path /var/run/fluent.sock
+
+[INPUT]
+    Name forward
+    Listen 127.0.0.1
+    Port 24224
+
+#[FILTER]
+#    Name record_modifier
+#    Match *
+#    Record ecs_cluster dmp-tool-dev-ecs-cluster-Fargate
+#    Record ecs_task_arn arn:aws:ecs:us-west-2:671846987296:task/dmp-tool-dev-ecs-cluster-Fargate/316edd12af6e4123b21442b2d24b729c
+#    Record ecs_task_definition dmp-tool-dev-ecs-apollo-apollo-server:57
+
+[Filter]
+    Name Parser
+    Match *
+    Parser docker
+    Key_Name log
+    Reserve_Data On
+    Preserve_Key On
+
+[OUTPUT]
+    Name null
+    Match firelens-healthcheck
+
+[OUTPUT]
+    Name opensearch
+    Match apolloServer-firelens*
+    Aws_Auth On
+    Aws_Region us-west-2
+    Aws_Service_Name aoss
+    Host zywkyz0ukbvv05v62tnl.us-west-2.aoss.amazonaws.com
+    Index dmp-log-dev-apollo
+    Port 443
+    Suppress_Type_Name On
+    Trace_Error On
+    Trace_Output On
+    retry_limit 2
+    tls On
+

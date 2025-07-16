@@ -102,6 +102,54 @@ Resources:
             ]
           }
 
+
+  # -----------------------------------------------------------
+  # Elastic Container Repository (ECR) - Hosts our customized AWS Firelens image.
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_ECR.html
+  #   and: https://github.com/aws/aws-for-fluent-bit
+  # -----------------------------------------------------------
+  AwsFirelensRepository:
+    Type: 'AWS::ECR::Repository'
+    DeletionPolicy: 'Retain'
+    Properties:
+      RepositoryName: !Sub 'dmptool-${Env}/aws-firelens'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub >
+          {
+            "rules": [
+              {
+                "action": {
+                  "type": "expire"
+                },
+                "selection": {
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 1,
+                  "tagStatus": "tagged",
+                  "tagPrefixList": [
+                    "${ECRLifecyclePolicyTagPrefix}"
+                  ]
+                },
+                "description": "Ensure that we do not have more than 1 tagged version",
+                "rulePriority": 1
+              },
+              {
+                "action": {
+                  "type": "expire"
+                },
+                "selection": {
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 3,
+                  "tagStatus": "untagged"
+                },
+                "description": "Only retain the last 3 versions",
+                "rulePriority": 2
+              }
+            ]
+          }
+
+
 Outputs:
   EcrRepositoryName:
     Value: !Ref EcrRepository
@@ -126,3 +174,15 @@ Outputs:
 
   NodeJSMySQLRepositoryURI:
     Value: !GetAtt NodeJSMySQLRepository.RepositoryUri
+
+  AwsFirelensRepositoryName:
+    Value: !Ref AwsFirelensRepository
+
+  AwsFirelensRepositoryARN:
+    Value: !GetAtt AwsFirelensRepository.Arn
+
+  AwsFirelensPrefix:
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com"
+
+  AwsFirelensRepositoryURI:
+    Value: !GetAtt AwsFirelensRepository.RepositoryUri
