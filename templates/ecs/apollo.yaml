@@ -494,7 +494,7 @@ Resources:
             Type: 'fluentbit'
             Options:
               config-file-type: 'file'
-              config-file-value: '/fluent-bit/config/fluent-bit.conf.include'
+              config-file-value: '/fluent-bit/config/fluent-bit.dmp_custom_filters.include'
           Environment:
             - Name: 'FLB_LOG_LEVEL'
               Value: 'debug'

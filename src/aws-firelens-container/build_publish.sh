@@ -1,13 +1,13 @@
 # !bin/bash
 set -x
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 <environment>"
+  exit 1
+fi
 ENV=$1
 ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
 ECR_ID=$ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com
-if [ "$ENV" = '' ]; then
-  ECR_REPO_NAME="dmptool/aws-firelens-mysql"
-else
-  ECR_REPO_NAME="dmptool-${ENV}/aws-firelens"
-fi
+ECR_REPO_NAME="dmptool-${ENV}/aws-firelens"
 IMAGE_TAG="development"
 
 # Login to ECR
