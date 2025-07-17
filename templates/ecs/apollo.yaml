@@ -519,10 +519,8 @@ Resources:
       DeploymentConfiguration:
         MaximumPercent: !Ref MaximumHealthyContainerPercentage
         DeploymentCircuitBreaker:
-          Enable: false
-          Rollback: false
-          #Enable: true
-          #Rollback: true
+          Enable: true
+          Rollback: true
       DeploymentController:
         # If this is dev then just do a rolling deploy, otherwise use the blue/green strategy
         Type: !If

@@ -33,15 +33,13 @@ parameters:
   OpenSearchCollection: !stack_attr sceptre_user_data.opensearch_log_collection
   OpenSearchCollectionArn: !stack_attr sceptre_user_data.opensearch_log_collection_arn
 
-  #EcsDesiredServiceCount: '2'
-  EcsDesiredServiceCount: '1'
+  EcsDesiredServiceCount: '2'
 
   CpuSize: '2048'
   MemorySize: '4096'
 
   StartTimeout: '30'
-  #HealthCheckGracePeriod: '30'
-  HealthCheckGracePeriod: '600'
+  HealthCheckGracePeriod: '30'
   MinimumHealthyContainerPercentage: '50'
   MaximumHealthyContainerPercentage: '200'
   StopTimeout: '30'

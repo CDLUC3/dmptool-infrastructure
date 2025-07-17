@@ -1,5 +1,4 @@
 # !bin/bash
-set -x
 if [ $# -ne 1 ]; then
   echo "Usage: $0 <environment>"
   exit 1
