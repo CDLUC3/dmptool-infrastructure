@@ -8,3 +8,4 @@ parameters:
   SecurityGroupID: !ssm /uc3/dmp/tool/dev/BatchSecurityGroupID
   EcrRepositoryName: !stack_output dev/ecr.yaml::EcrRepositoryName
   S3RelatedWorksBucketID: !stack_output dev/s3.yaml::S3RelatedWorksBucketID
+  OpenSearchCollectionArn: !stack_attr sceptre_user_data.opensearch_data_collection_arn
