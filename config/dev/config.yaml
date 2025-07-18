@@ -34,6 +34,7 @@ sceptre_user_data:
   # OpenSearch
   opensearch_log_collection: !stack_output_external uc3-ops-dev-aoss-collections::Uc3DmpAossLogsCollection cdl-uc3-dev
   opensearch_log_collection_arn: !stack_output_external uc3-ops-dev-aoss-collections::Uc3DmpAossLogsCollectionArn cdl-uc3-dev
+  opensearch_data_collection_arn: !stack_output_external uc3-ops-dev-aoss-collections::Uc3DmpAossDataCollectionArn cdl-uc3-dev
 
   # Environment specific variables
   app: 'dmptool'

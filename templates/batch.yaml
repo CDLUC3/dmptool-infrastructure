@@ -17,6 +17,9 @@ Parameters:
   S3RelatedWorksBucketID:
     Type: 'String'
 
+  OpenSearchCollectionArn:
+    Type: 'String'
+
   EcrImageName:
     Type: 'String'
     Default: 'dmpworks-x86'
@@ -229,6 +232,15 @@ Resources:
               Service: 'ecs-tasks.amazonaws.com'
             Action: 'sts:AssumeRole'
       Policies:
+        - PolicyName: 'RelatedWorksAossPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'aoss:APIAccessAll'
+                Resource:
+                  - !Ref OpenSearchCollectionArn
         - PolicyName: 'RelatedWorksS3Policy'
           PolicyDocument:
             Version: '2012-10-17'
@@ -293,3 +305,10 @@ Resources:
           - '/bin/bash'
           - '-c'
           - 'dmpworks --version'
+
+Outputs:
+  BatchJobRoleArn:
+    Value: !GetAtt BatchJobRole.Arn
+
+  BatchInstanceRoleArn:
+    Value: !GetAtt BatchInstanceRole.Arn
