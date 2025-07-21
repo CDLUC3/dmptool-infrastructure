@@ -2,6 +2,12 @@
 
 FROM public.ecr.aws/aws-observability/aws-for-fluent-bit:stable
 
-RUN yum -y update
+## Optional - add python tool for debugging opensearch ingestion issues
+#RUN yum install python3
+#RUN pip3 install boto3 opensearch-py
+#RUN [ -d /local/bin ] || mkdir /local/bin
+#COPY ./aoss_ingest_tester.py /local/bin/
 
-COPY ./dmp_customizations.conf /fluent-bit/etc/
+# add custom filters for fluent-bit
+RUN yum -y update
+COPY ./fluent-bit_customizations.conf /fluent-bit/etc/

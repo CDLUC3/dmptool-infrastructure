@@ -1,13 +1,8 @@
 # !bin/bash
-if [ $# -ne 1 ]; then
-  echo "Usage: $0 <environment>"
-  exit 1
-fi
-ENV=$1
 ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
 ECR_ID=$ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com
-ECR_REPO_NAME="dmptool-${ENV}/aws-firelens"
-IMAGE_TAG="development"
+ECR_REPO_NAME="dmptool/aws-firelens"
+IMAGE_TAG="latest"
 
 # Login to ECR
 aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $ECR_ID

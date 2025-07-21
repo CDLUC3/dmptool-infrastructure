@@ -99,10 +99,6 @@ Parameters:
     Type: 'Number'
     Default: 180 # seconds
 
-  HealthyThresholdCount:
-    Type: 'Number'
-    Default: 5 # of checks
-
   MinimumHealthyContainerPercentage:
     Type: 'Number'
     Default: 50
@@ -498,7 +494,7 @@ Resources:
             Type: 'fluentbit'
             Options:
               config-file-type: 'file'
-              config-file-value: '/fluent-bit/etc/dmp_customizations.conf'
+              config-file-value: '/fluent-bit/etc/fluent-bit_customizations.conf'
           Environment:
             - Name: 'FLB_LOG_LEVEL'
               Value: 'debug'

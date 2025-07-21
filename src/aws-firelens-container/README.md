@@ -1,13 +1,17 @@
-# Dockerfile for AWS Codebuild
+Customized 'aws-for-fluent-bit' docker image
+============================================
 
 This image modifies the
 [aws-for-fluent-bit](https://github.com/aws/aws-for-fluent-bit) image which we
 use to build a log forwarder "side car" container.  This container runs
-fluent-bit and parses/forwards log events to to Opensearch.  All we do here is
-manage a custom `fluent-bit.conf` configuration file.
+fluent-bit and parses/forwards log events to to Opensearch.
 
-To update the image, adjust the `fluent-bit.conf` in this directory as needed
-and then run `src/aws-firelens-container/build_publish.sh`
+Add your custom fluent-bit configurations to `fluent-bit_customizations.conf`.  This file 
+gets applied as an `@INCLUDE` statement in `/fluent-bit/etc/fluent-bit.conf` during 
+container initialization in ECS.
+
+To update the image, run `src/aws-firelens-container/build_publish.sh`
+
 
 Additional links of interest:
 

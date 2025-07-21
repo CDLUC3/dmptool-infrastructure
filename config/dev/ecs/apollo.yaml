@@ -21,7 +21,7 @@ parameters:
   EcrImageTag: !stack_attr sceptre_user_data.apollo_image_tag
 
   AwsFirelensRepositoryUri: !stack_output dev/ecr.yaml::AwsFirelensRepositoryURI
-  AwsFirelensImageTag: "development"
+  AwsFirelensImageTag: "latest"
 
   EcsClusterId: !stack_output dev/ecs/cluster.yaml::EcsFargateClusterId
   EcsTaskExecutionRoleId: !stack_output dev/ecs/cluster.yaml::EcsFargateExecutionRoleId

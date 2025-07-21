@@ -22,7 +22,7 @@
     Record ecs_task_arn arn:aws:ecs:us-west-2:671846987296:task/dmp-tool-dev-ecs-cluster-Fargate/316edd12af6e4123b21442b2d24b729c
     Record ecs_task_definition dmp-tool-dev-ecs-apollo-apollo-server:57
 
-@INCLUDE /fluent-bit/config/fluent-bit.dmp_custom_filters.include
+@INCLUDE /fluent-bit/config/fluent-bit_customiztions.conf
 
 [OUTPUT]
     Name null

@@ -112,7 +112,7 @@ Resources:
     Type: 'AWS::ECR::Repository'
     DeletionPolicy: 'Retain'
     Properties:
-      RepositoryName: !Sub 'dmptool-${Env}/aws-firelens'
+      RepositoryName: !Sub 'dmptool/aws-firelens'
       ImageScanningConfiguration:
         ScanOnPush: true
       LifecyclePolicy:
