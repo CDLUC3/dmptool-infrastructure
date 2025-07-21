@@ -59,6 +59,13 @@ Parameters:
   EcrImageTag:
     Type: 'String'
 
+  AwsFirelensRepositoryUri:
+    Type: 'String'
+
+  AwsFirelensImageTag:
+    Type: 'String'
+    Default: 'latest'
+
   AlbTargetGroupArn:
     Type: 'String'
 
@@ -469,7 +476,7 @@ Resources:
 
         # The AWS Firelens sidecar container to send application logs to opensearch
         - Name: !Sub "${ContainerName}Firelens${Env}"
-          Image: "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
+          Image: !Sub "${AwsFirelensRepositoryUri}:${AwsFirelensImageTag}"
           Cpu: 0
           MemoryReservation: 51
           Essential: true
@@ -485,6 +492,9 @@ Resources:
               awslogs-stream-prefix: 'firelens'
           FirelensConfiguration:
             Type: 'fluentbit'
+            Options:
+              config-file-type: 'file'
+              config-file-value: '/fluent-bit/etc/fluent-bit_customizations.conf'
           Environment:
             - Name: 'FLB_LOG_LEVEL'
               Value: 'debug'
