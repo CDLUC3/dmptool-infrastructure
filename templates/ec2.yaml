@@ -15,6 +15,9 @@ Parameters:
   S3RelatedWorksBucketID:
     Type: 'String'
 
+  OpenSearchCollectionArn:
+    Type: 'String'
+
   InstanceType:
     Type: 'String'
     Default: 'c5ad.large' # cheapest AMD instance with NVMe storage
@@ -132,6 +135,15 @@ Resources:
             Action: 'sts:AssumeRole'
 
       Policies:
+        - PolicyName: 'RelatedWorksAossPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'aoss:APIAccessAll'
+                Resource:
+                  - !Ref OpenSearchCollectionArn
         - PolicyName: 'RelatedWorksS3Policy'
           PolicyDocument:
             Version: 2012-10-17
@@ -165,3 +177,6 @@ Resources:
 Outputs:
   SecurityGroupId:
     Value: !Ref EC2SecurityGroup
+
+  EC2InstanceRoleArn:
+    Value: !GetAtt EC2InstanceRole.Arn
