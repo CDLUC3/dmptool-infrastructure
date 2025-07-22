@@ -1,4 +1,4 @@
-# /usr/bin/env python3
+#! /usr/bin/env python3
 # python script for validating your log-router container can properly ingest content
 # into your AOSS collection.
 #
@@ -13,10 +13,10 @@ import boto3
 # serverless collection endpoint, without https://
 #
 # dmp-log-collection
-#host = 'zywkyz0ukbvv05v62tnl.us-west-2.aoss.amazonaws.com'
+host = 'zywkyz0ukbvv05v62tnl.us-west-2.aoss.amazonaws.com'
 #
 # mrt-log-collection
-host = 'ugbu3b4vhoqcrtwbsypk.us-west-2.aoss.amazonaws.com'  # serverless collection endpoint, without https://
+#host = 'ugbu3b4vhoqcrtwbsypk.us-west-2.aoss.amazonaws.com'
 
 region = 'us-west-2'  # e.g. us-east-1
 service = 'aoss'
