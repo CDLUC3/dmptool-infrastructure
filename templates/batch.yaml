@@ -272,7 +272,11 @@ Resources:
                 - 'ec2:DescribeInstances'
                 - 'ec2:AssociateAddress'
               Resource:
-                - '*' # TODO: can we make this apply to only the instance itself?
+                - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*"
+              Condition:
+                StringLike:
+                  aws:userid: "*:${ec2:InstanceID}"
+
       ManagedPolicyArns:
         # Allow EC2 instance to access ECR
         - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
