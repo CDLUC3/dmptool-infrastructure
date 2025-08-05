@@ -45,6 +45,8 @@ parameters:
 
   HelpdeskEmail: !ssm /uc3/dmp/tool/stg/HelpdeskEmail
 
+  JwtSecret: !ssm /uc3/dmp/tool/stg/JWTSecret
+
 hooks:
   # ECS needs a placeholder image to be pushed to ECR for the build to succeed
   before_create:

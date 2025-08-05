@@ -11,3 +11,6 @@ parameters:
 
   # Whether WAF sends metrics to Amazon CloudWatch.
   CloudWatchMetricsEnabled: 'true'
+
+  # Log bucket for WAF that will be used to send logs to OpenSearch via Fluentbit
+  S3WafLogsBucketARN: !stack_output stg/s3.yaml::S3WafLogsBucketARN
