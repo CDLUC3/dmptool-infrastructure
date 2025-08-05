@@ -286,10 +286,11 @@ Resources:
           Enable: true
           Rollback: true
       DeploymentController:
-        # If this is dev then just do a rolling deploy, otherwise use the blue/green strategy
+        # TODO: Investigate blue/green deployment strategies for prod.
+        #       "CODE_DEPLOY" does not allow CF to deploy task changes!
         Type: !If
           - IsProd
-          - 'CODE_DEPLOY'
+          - 'ECS' # 'CODE_DEPLOY'
           - 'ECS'
       LoadBalancers:
         - TargetGroupArn: !Ref AlbTargetGroupArn
