@@ -17,6 +17,9 @@ Parameters:
   S3RelatedWorksBucketID:
     Type: 'String'
 
+  OpenSearchCollectionArn:
+    Type: 'String'
+
   EcrImageName:
     Type: 'String'
     Default: 'dmpworks-x86'
@@ -43,12 +46,13 @@ Resources:
         MaxvCpus: 128
         DesiredvCpus: 0
         InstanceTypes:
-          - 'c5ad.large' # 2 vCPUs, 4 GiB memory. ROR and OpenAlex funders. Small cheap instance with NVMe.
-          - 'm5dn.4xlarge' # 16 vCPUs, 64 GiB memory. Crossref, DataCite.
-          - 'r5dn.8xlarge' # 32 vCPUs, 256 GiB memory. OpenAlex Works, SQL Mesh.
+          - 'c5ad.large' # 2 vCPUs, 4 GiB memory. ROR and OpenAlex funders. Small cheap instance with NVMe. AMD EPYC 7R32. Up to Gigabit.
+          - 'c5ad.8xlarge' # 32 vCPUs, 64 GiB memory. OpenAlex Works, DataCite, Crossref Metadata.
+          - 'r5dn.8xlarge' # 32 vCPUs, 256 GiB memory. SQL Mesh. Intel Xeon Platinum 8259 (Cascade Lake). 25 Gigabit.
+          - 'm5dn.2xlarge' # 8 vCPUs, 32 GiB memory. OpenSearch ingest.
         LaunchTemplate:
           LaunchTemplateId: !Ref BatchLaunchTemplate
-          Version: $Latest
+          Version: !GetAtt BatchLaunchTemplate.LatestVersionNumber
         Subnets:
           - !Ref SubnetId
         SecurityGroupIds:
@@ -76,24 +80,87 @@ Resources:
             
             #!/bin/bash
             set -uxo pipefail
-
-            cat > /tmp/setup-instance.sh << SCRIPT
-              #!/bin/bash
-              set -uxo pipefail
-
-              # Refresh local list of available packages
-              dnf update -y
             
-              # Install any required system dependencies
-              # TODO
+            # Save Cloud Watch Agent config
+            cat > /tmp/amazon-cloudwatch-agent.json << 'CWA_SCRIPT'
+            {
+              "agent": {
+                "run_as_user": "root"
+              },
+              "metrics": {
+                "metrics_collected": {
+                  "mem": {
+                    "measurement": [
+                      "mem_used_percent",
+                      "mem_total",
+                      "mem_used"
+                    ],
+                    "metrics_collection_interval": 60
+                  },
+                  "disk": {
+                    "resources": [
+                      "/",
+                      "/data"
+                    ],
+                    "measurement": [
+                      "used_percent",
+                      "total"
+                    ],
+                    "drop_device_metrics": true,
+                    "metrics_collection_interval": 60
+                  }
+                },
+                "append_dimensions": {
+                  "InstanceId": "${!aws:InstanceId}"
+                }
+              }
+            }
+            CWA_SCRIPT
 
-              # Mount disk to /data dir
-              if lsblk | grep -q nvme1n1; then
-                mkfs.ext4 /dev/nvme1n1
-                mkdir -p /data
-                mount /dev/nvme1n1 /data
-                echo "/dev/nvme1n1 /data ext4 defaults,nofail 0 2" >> /etc/fstab
+            cat > /tmp/setup-instance.sh << 'SCRIPT'
+            #!/bin/bash
+            set -uxo pipefail
+
+            # Refresh local list of available packages
+            dnf update -y
+          
+            # Install any required system dependencies
+            dnf install amazon-cloudwatch-agent mdadm -y
+
+            # Mount disks to /data dir
+            if lsblk | grep -q nvme1n1 && lsblk | grep -q nvme2n1; then
+              # Mount two disks to /data dir
+          
+              # Create RAID 0 (if not already exists)
+              if [ ! -e /dev/md0 ]; then
+                mdadm --create --verbose /dev/md0 --level=0 --raid-devices=2 /dev/nvme1n1 /dev/nvme2n1 --assume-clean --run
               fi
+          
+              # Persist RAID config
+              mkdir -p /etc/mdadm
+              mdadm --detail --scan >> /etc/mdadm/mdadm.conf
+          
+              # Format if not already formatted
+              if ! blkid /dev/md0; then
+                mkfs.ext4 -F /dev/md0
+              fi
+          
+              # Mount to /data
+              mkdir -p /data
+              echo "/dev/md0 /data ext4 defaults,nofail 0 2" >> /etc/fstab
+              mount /data            
+            elif lsblk | grep -q nvme1n1; then
+              # Mount single disk to /data dir
+              mkfs.ext4 /dev/nvme1n1
+              mkdir -p /data
+              echo "/dev/nvme1n1 /data ext4 defaults,nofail 0 2" >> /etc/fstab
+              mount /data
+            fi
+            
+            # Start Cloud Watch Agent with config
+            cp /tmp/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+            amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+            
             SCRIPT
 
             # Run the script only once on the instance
@@ -137,6 +204,7 @@ Resources:
             Action: 'sts:AssumeRole'
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role'
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
 
   BatchJobQueue:
     Type: 'AWS::Batch::JobQueue'
@@ -162,7 +230,16 @@ Resources:
               Service: 'ecs-tasks.amazonaws.com'
             Action: 'sts:AssumeRole'
       Policies:
-        - PolicyName: 'S3Policy'
+        - PolicyName: 'RelatedWorksAossPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'aoss:APIAccessAll'
+                Resource:
+                  - !Ref OpenSearchCollectionArn
+        - PolicyName: 'RelatedWorksS3Policy'
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -175,6 +252,31 @@ Resources:
               Resource:
                 - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}'
                 - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}/*'
+        - PolicyName: 'CrossrefMetadataS3Policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: 'Allow'
+              Action:
+                - 's3:GetObject'
+                - 's3:ListBucket'
+              Resource:
+                - 'arn:aws:s3:::api-snapshots-reqpays-crossref'
+                - 'arn:aws:s3:::api-snapshots-reqpays-crossref/*'
+        - PolicyName: 'DataCiteStaticIpPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: 'Allow'
+              Action:
+                - 'ec2:DescribeInstances'
+                - 'ec2:AssociateAddress'
+              Resource:
+                - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*"
+              Condition:
+                StringLike:
+                  aws:userid: "*:${ec2:InstanceID}"
+
       ManagedPolicyArns:
         # Allow EC2 instance to access ECR
         - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
@@ -205,3 +307,7 @@ Resources:
           - '/bin/bash'
           - '-c'
           - 'dmpworks --version'
+
+Outputs:
+  BatchJobRoleArn:
+    Value: !GetAtt BatchJobRole.Arn

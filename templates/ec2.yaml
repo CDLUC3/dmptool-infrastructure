@@ -4,24 +4,27 @@ Description: 'An EC2 instance for development and testing'
 
 Parameters:
   ImageId:
-    Type: AWS::EC2::Image::Id
+    Type: 'AWS::EC2::Image::Id'
 
   VpcId:
-    Type: AWS::EC2::VPC::Id
+    Type: 'AWS::EC2::VPC::Id'
 
   SubnetId:
-    Type: AWS::EC2::Subnet::Id
+    Type: 'AWS::EC2::Subnet::Id'
 
   S3RelatedWorksBucketID:
-    Type: String
+    Type: 'String'
+
+  OpenSearchCollectionArn:
+    Type: 'String'
 
   InstanceType:
-    Type: String
-    Default: c5ad.large # cheapest AMD instance with NVMe storage
+    Type: 'String'
+    Default: 'c5ad.large' # cheapest AMD instance with NVMe storage
 
 Resources:
   DevEC2Instance:
-    Type: AWS::EC2::Instance
+    Type: 'AWS::EC2::Instance'
     Properties:
       Tags:
         # Sets EC2 instance name
@@ -35,9 +38,9 @@ Resources:
         - !Ref EC2SecurityGroup
       IamInstanceProfile: !Ref EC2InstanceProfile
       BlockDeviceMappings:
-        - DeviceName: /dev/xvda # Amazon Linux root volume
+        - DeviceName: '/dev/xvda' # Amazon Linux root volume
           Ebs:
-            VolumeType: gp3
+            VolumeType: 'gp3'
             DeleteOnTermination: true
             VolumeSize: 30 # GB
       UserData:
@@ -52,61 +55,96 @@ Resources:
             # Refresh local list of available packages
             dnf update -y
             
+            # Install packages
+            sudo dnf install mdadm docker amazon-ecr-credential-helper -y
+            
             # Install Docker
-            dnf install -y docker
             systemctl enable --now docker
             usermod -a -G docker ec2-user
   
             # Give Docker access to ECR
-            dnf install -y amazon-ecr-credential-helper
             mkdir -p /home/ec2-user/.docker
             chown ec2-user:ec2-user /home/ec2-user/.docker
             echo '{"credsStore":"ecr-login"}' > /home/ec2-user/.docker/config.json
             chown ec2-user:ec2-user /home/ec2-user/.docker/config.json
             
-            # Mount disk to /data dir
-            mkfs.ext4 /dev/nvme1n1
-            mkdir -p /data
-            mount /dev/nvme1n1 /data
-            echo "/dev/nvme1n1 /data ext4 defaults,nofail 0 2" >> /etc/fstab
-            chown ec2-user:ec2-user /data
+            # Mount disks to /data dir
+            if lsblk | grep -q nvme1n1 && lsblk | grep -q nvme2n1; then
+              # Mount two disks to /data dir
+          
+              # Create RAID 0 (if not already exists)
+              if [ ! -e /dev/md0 ]; then
+                mdadm --create --verbose /dev/md0 --level=0 --raid-devices=2 /dev/nvme1n1 /dev/nvme2n1 --assume-clean --run
+              fi
+          
+              # Persist RAID config
+              mkdir -p /etc/mdadm
+              mdadm --detail --scan >> /etc/mdadm/mdadm.conf
+          
+              # Format if not already formatted
+              if ! blkid /dev/md0; then
+                mkfs.ext4 -F /dev/md0
+              fi
+          
+              # Mount to /data
+              mkdir -p /data
+              echo "/dev/md0 /data ext4 defaults,nofail 0 2" >> /etc/fstab
+              mount /data
+              chown ec2-user:ec2-user /data
+            elif lsblk | grep -q nvme1n1; then
+              # Mount single disk to /data dir
+              mkfs.ext4 /dev/nvme1n1
+              mkdir -p /data
+              echo "/dev/nvme1n1 /data ext4 defaults,nofail 0 2" >> /etc/fstab
+              mount /data
+              chown ec2-user:ec2-user /data
+            fi
           SCRIPT
 
           # Run the script only once on the instance
           cloud-init-per instance setup-instance /bin/bash /tmp/setup-instance.sh
 
   EC2SecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+    Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupName: !Sub '${AWS::StackName}-security-group'
-      GroupDescription: Allow SSH and HTTP
+      GroupDescription: 'Allow SSH and HTTP'
       VpcId: !Ref VpcId
       SecurityGroupEgress:
         - IpProtocol: -1
           FromPort: -1
           ToPort: -1
-          CidrIp: 0.0.0.0/0
+          CidrIp: '0.0.0.0/0'
 
   EC2InstanceProfile:
-    Type: AWS::IAM::InstanceProfile
+    Type: 'AWS::IAM::InstanceProfile'
     Properties:
       InstanceProfileName: !Sub '${AWS::StackName}-instance-profile'
       Roles: [ !Ref EC2InstanceRole ]
 
   EC2InstanceRole:
-    Type: AWS::IAM::Role
+    Type: 'AWS::IAM::Role'
     Properties:
       RoleName: !Sub '${AWS::StackName}-instance-role'
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: '2012-10-17'
         Statement:
-          - Effect: Allow
+          - Effect: 'Allow'
             Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
+              Service: 'ec2.amazonaws.com'
+            Action: 'sts:AssumeRole'
 
       Policies:
-        - PolicyName: S3Policy
+        - PolicyName: 'RelatedWorksAossPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'aoss:APIAccessAll'
+                Resource:
+                  - !Ref OpenSearchCollectionArn
+        - PolicyName: 'RelatedWorksS3Policy'
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -121,7 +159,17 @@ Resources:
                 - 'arn:aws:s3:::dmpworks-test/*'
                 - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}'
                 - !Sub 'arn:aws:s3:::${S3RelatedWorksBucketID}/*'
-
+        - PolicyName: 'CrossrefMetadataS3Policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: 'Allow'
+              Action:
+                - 's3:GetObject'
+                - 's3:ListBucket'
+              Resource:
+                - 'arn:aws:s3:::api-snapshots-reqpays-crossref'
+                - 'arn:aws:s3:::api-snapshots-reqpays-crossref/*'
       ManagedPolicyArns:
         # Allow EC2 instance to access ECR
         - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
@@ -129,3 +177,6 @@ Resources:
 Outputs:
   SecurityGroupId:
     Value: !Ref EC2SecurityGroup
+
+  EC2InstanceRoleArn:
+    Value: !GetAtt EC2InstanceRole.Arn
