@@ -1,0 +1,28 @@
+template:
+  path: 'codepipeline/narrative-generator.yaml'
+  type: 'file'
+
+parameters:
+  CodeStarConnectionArn: !stack_output dev/codestar.yaml::CodestarConnectionARN
+
+  S3ArtifactBucketId: !stack_output dev/s3.yaml::S3PrivateBucketID
+
+  CodeBuildProjectName: !stack_output dev/codebuild/narrative-generator.yaml::CodeBuildProjectId
+
+  DataMigrationBuildProjectName: !stack_output dev/codebuild/data-migration.yaml::CodeBuildProjectId
+
+  EcsCluster: !stack_output dev/ecs/cluster.yaml::EcsFargateClusterId
+
+  EcsServiceName: !stack_output dev/ecs/narrative-generator.yaml::EcsServiceName
+
+  Env: !stack_attr sceptre_user_data.env
+
+  AppName: !stack_attr sceptre_user_data.app
+
+  ContainerName: !stack_attr sceptre_user_data.narrative_generator_name
+
+  RepositoryName: 'CDLUC3/dmptool-narrative-generator'
+
+  BranchToMonitor: 'development'
+
+  SourceOutputArtifactFormat: 'CODEBUILD_CLONE_REF'

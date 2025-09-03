@@ -1,0 +1,61 @@
+template:
+  path: 'ecs/narrative-generator.yaml'
+  type: 'file'
+
+parameters:
+  Subnets: !stack_attr sceptre_user_data.public_subnets
+
+  Env: !stack_attr sceptre_user_data.env
+  AppName: !stack_attr sceptre_user_data.app
+  Domain: !stack_attr sceptre_user_data.domain
+  ContainerName: !stack_attr sceptre_user_data.narrative_generator_name
+  AppPort: !stack_attr sceptre_user_data.narrative_generator_port
+
+  EcrRepositoryUri: !stack_output dev/ecr.yaml::EcrRepositoryURI
+  EcrImageTag: !stack_attr sceptre_user_data.narrative_generator_tag
+
+  OpenSearchCollection: !stack_attr sceptre_user_data.opensearch_log_collection
+  OpenSearchCollectionArn: !stack_attr sceptre_user_data.opensearch_log_collection_arn
+
+  AwsFirelensRepositoryUri: !stack_output dev/ecr.yaml::AwsFirelensRepositoryURI
+  AwsFirelensImageTag: "latest"
+
+  EcsClusterId: !stack_output dev/ecs/cluster.yaml::EcsFargateClusterId
+  EcsTaskExecutionRoleId: !stack_output dev/ecs/cluster.yaml::EcsFargateExecutionRoleId
+  EcsSecGrpId: !stack_output dev/ecs/cluster.yaml::EcsFargateSecGrp
+
+  AlbTargetGroupArn: !stack_output dev/alb.yaml::NarrativeGeneratorTargetGroupArn
+  AlbSecGrpId: !stack_output dev/alb.yaml::AlbSecurityGroupId
+
+  EcsDesiredServiceCount: '2'
+
+  CpuSize: '2048'
+  MemorySize: '4096'
+
+  StartTimeout: '30'
+  HealthCheckGracePeriod: '30'
+  MinimumHealthyContainerPercentage: '50'
+  MaximumHealthyContainerPercentage: '200'
+  StopTimeout: '30'
+
+  # ENV variables used by the container
+  DynamoTableName: !stack_output dev/dynamo.yaml::DynamoTableName
+  JwtSecret: !ssm /uc3/dmp/tool/dev/JWTSecret
+  LogLevel: 'debug'
+  NodeEnv: 'production'
+  DynamoMaxAttempts: '3'
+
+  RdsHost: !stack_output dev/rds.yaml::DbAddress
+  RdsPort: !stack_output dev/rds.yaml::DbPort
+  RdsDatabase: !stack_output dev/rds.yaml::DbName
+  RdsUser: !ssm /uc3/dmp/tool/dev/RdsUsername
+  RdsPassword: !ssm /uc3/dmp/tool/dev/RdsPassword
+  RdsConnectionTimeout: 60000
+  RdsConnectionLimit: 10
+  RdsQueueLimit: 5
+
+hooks:
+  # ECS needs a placeholder image to be pushed to ECR for the build to succeed.
+  # The final arg MUST match the health check endpoint for the service!!!!
+  before_create:
+    - !cmd "./src/make-temp-ecs-docker-image.sh dev narrative-latest 4030 narrative-health"
