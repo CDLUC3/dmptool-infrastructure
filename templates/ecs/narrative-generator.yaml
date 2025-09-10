@@ -164,6 +164,7 @@ Resources:
               - 'sts:AssumeRole'
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonRDSDataFullAccess'
         - 'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'
       Policies:
         - PolicyName: 'apollo-aoss'
@@ -226,6 +227,15 @@ Resources:
           #   Interval: 5
           #   Retries: 2
           #   Timeout: 3
+
+          # LogConfiguration:
+          #   LogDriver: 'awslogs'
+          #   Options:
+          #     awslogs-region: !Ref AWS::Region
+          #     awslogs-create-group: true
+          #     awslogs-group: !Ref AWS::StackName
+          #     awslogs-stream-prefix: !Ref ContainerName
+
           LogConfiguration:
             LogDriver: 'awsfirelens'
             Options:
