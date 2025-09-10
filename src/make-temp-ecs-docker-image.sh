@@ -60,7 +60,7 @@ docker push ${ECR_URI}:$2
 
 echo "Temporary ECS Docker image created and pushed to ECR at ${ECR_URI}:$2"
 
-echo "Adding lifecycle policy to ECR repository ..."
-aws ecr put-lifecycle-policy \
-  --repository-name dmptool-dev/nodejs-mysql \
-  --lifecycle-policy-text '{"rules": [{"action": {"type": "expire"},"selection": {"countType": "imageCountMoreThan","countNumber": 1,"tagStatus": "tagged","tagPrefixList": ["latest"]},"description": "Ensure that we do not have more than 1 tagged version","rulePriority": 1},{"action": {"type": "expire"},"selection": {"countType": "imageCountMoreThan","countNumber": 3,"tagStatus": "untagged"},"description": "Only retain the last 3 versions","rulePriority": 2}]}'
+# echo "Adding lifecycle policy to ECR repository ..."
+# aws ecr put-lifecycle-policy \
+#   --repository-name dmptool-$1/$2 \
+#   --lifecycle-policy-text '{"rules": [{"action": {"type": "expire"},"selection": {"countType": "imageCountMoreThan","countNumber": 1,"tagStatus": "tagged","tagPrefixList": ["latest"]},"description": "Ensure that we do not have more than 1 tagged version","rulePriority": 1},{"action": {"type": "expire"},"selection": {"countType": "imageCountMoreThan","countNumber": 3,"tagStatus": "untagged"},"description": "Only retain the last 3 versions","rulePriority": 2}]}'

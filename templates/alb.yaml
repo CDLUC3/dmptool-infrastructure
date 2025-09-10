@@ -43,6 +43,10 @@ Parameters:
     Type: 'Number'
     Default: 3000
 
+  NarrativeGeneratorPort:
+    Type: 'Number'
+    Default: 4030
+
   ShibbolethPort:
     Type: 'Number'
     Default: 5000
@@ -133,6 +137,34 @@ Resources:
         HttpCode: '200-399'
       VpcId: !Ref VpcId
       Port: !Ref NextJsPort
+      Protocol: 'HTTP'
+      # TargetGroupAttributes:
+      #   - Key: 'stickiness.enabled'
+      #     Value: true
+      #   - Key: 'stickiness.type'
+      #     Value: 'lb_cookie'
+      #   - Key: 'stickiness.lb_cookie.duration_seconds'
+      #     Value: 300 # 900 # 15 minutes
+      TargetType: 'ip'
+
+  NarrativeGeneratorTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Name: !Sub "${AWS::StackName}-Narrative-TG"
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 120 # 2 minutes
+      HealthCheckPath: '/narrative-health'
+      HealthCheckPort: 'traffic-port'
+      HealthCheckProtocol: 'HTTP'
+      HealthCheckTimeoutSeconds: 60
+      UnhealthyThresholdCount: 2
+      Matcher:
+        # TODO: For some reason the Healthcheck is returning a 301 instead of 200
+        #       so expanding this to allow for that. When you hit the path from a
+        #       browser or curl though it returns a 200
+        HttpCode: '200-399'
+      VpcId: !Ref VpcId
+      Port: !Ref NarrativeGeneratorPort
       Protocol: 'HTTP'
       # TargetGroupAttributes:
       #   - Key: 'stickiness.enabled'
@@ -308,6 +340,22 @@ Resources:
       ListenerArn: !GetAtt AlbListenerHttps.ListenerArn
       Priority: 6
 
+  # Listener rule to send traffic to the DMP Narrative Generator service
+  NarrativeGeneratorListenerRule:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    Properties:
+      Actions:
+        - Type: 'forward'
+          TargetGroupArn: !Ref NarrativeGeneratorTargetGroup
+      Conditions:
+        - Field: 'path-pattern'
+          PathPatternConfig:
+            Values:
+              - '/dmps*/narrative.*'
+              - '/narrative-health'
+      ListenerArn: !GetAtt AlbListenerHttps.ListenerArn
+      Priority: 7
+
   AlbWafAssocation:
     Type: 'AWS::WAFv2::WebACLAssociation'
     DependsOn:
@@ -328,6 +376,12 @@ Outputs:
 
   NextJsServerTargetGroupFullName:
     Value: !GetAtt NextJsServerTargetGroup.TargetGroupFullName
+
+  NarrativeGeneratorTargetGroupArn:
+    Value: !Ref NarrativeGeneratorTargetGroup
+
+  NarrativeGeneratorTargetGroupFullName:
+    Value: !GetAtt NarrativeGeneratorTargetGroup.TargetGroupFullName
 
   ShibbolethTargetGroupArn:
     Value: !Ref ShibbolethTargetGroup

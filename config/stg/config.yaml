@@ -51,6 +51,10 @@ sceptre_user_data:
   apollo_container_name: 'apolloServer'
   apollo_container_port: '4000'
 
+  narrative_generator_tag: 'narrative-latest'
+  narrative_generator_name: 'narrativeGenerator'
+  narrative_generator_port: '4030'
+
   shibboleth_image_tag: 'shibboleth-latest'
   shibboleth_container_name: 'shibboleth'
   shibboleth_container_port: '5000'

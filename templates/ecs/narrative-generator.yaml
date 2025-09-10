@@ -1,0 +1,397 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'Serverless architecture for the DMP Tool narrative generator service'
+
+Parameters:
+  Subnets:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+
+  EcsClusterId:
+    Type: 'String'
+
+  EcsTaskExecutionRoleId:
+    Type: 'String'
+
+  EcsSecGrpId:
+    Type: 'String'
+
+  AlbSecGrpId:
+    Type: 'String'
+
+  OpenSearchCollection:
+    Type: 'String'
+
+  OpenSearchCollectionArn:
+    Type: 'String'
+
+  Env:
+    Type: 'String'
+    Default: 'dev'
+
+  AppName:
+    Type: 'String'
+
+  Domain:
+    Type: 'String'
+
+  ContainerName:
+    Type: 'String'
+
+  AppPort:
+    Type: 'Number'
+
+  EcsDesiredServiceCount:
+    Type: 'Number'
+    Default: 1
+
+  EcrRepositoryUri:
+    Type: 'String'
+
+  EcrImageTag:
+    Type: 'String'
+
+  AwsFirelensRepositoryUri:
+    Type: 'String'
+
+  AwsFirelensImageTag:
+    Type: 'String'
+    Default: 'latest'
+
+  AlbTargetGroupArn:
+    Type: 'String'
+
+  CpuSize:
+    Type: 'String'
+    Default: '2048' # 2 vCPU
+
+  MemorySize:
+    Type: 'String'
+    Default: '4096' # 4GB
+
+  StartTimeout:
+    Type: 'Number'
+    Default: 30 # seconds
+
+  HealthCheckGracePeriod:
+    Type: 'Number'
+    Default: 180 # seconds
+
+  MinimumHealthyContainerPercentage:
+    Type: 'Number'
+    Default: 50
+
+  MaximumHealthyContainerPercentage:
+    Type: 'Number'
+    Default: 150
+
+  StopTimeout:
+    Type: 'Number'
+    Default: 30 # seconds
+
+  LogLevel:
+    Type: 'String'
+    Default: 'warn'
+    AllowedValues:
+      - 'debug'
+      - 'info'
+      - 'warn'
+      - 'error'
+
+  DynamoTableName:
+    Type: 'String'
+
+  JwtSecret:
+    Type: 'String'
+
+  DynamoMaxAttempts:
+    Type: 'Number'
+    Default: 3
+
+  NodeEnv:
+    Type: 'String'
+    Default: 'production'
+
+  RdsHost:
+    Type: 'String'
+
+  RdsPort:
+    Type: 'Number'
+    Default: 3306
+
+  RdsDatabase:
+    Type: 'String'
+    Default: 'dmptool'
+
+  RdsUser:
+    Type: 'String'
+
+  RdsPassword:
+    Type: 'String'
+
+  RdsConnectionTimeout:
+    Type: 'Number'
+    Default: 60000
+
+  RdsConnectionLimit:
+    Type: 'Number'
+    Default: 10
+
+  RdsQueueLimit:
+    Type: 'Number'
+    Default: 5
+
+Conditions:
+  IsProd:
+    !Equals [!Ref Env, 'prd']
+
+Resources:
+  # -----------------------------------------------------------
+  # Identitity and Access Management (IAM)
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_IAM.html
+  # -----------------------------------------------------------
+  # Role that grants our containers in the task permission to call AWS APIs
+  EcsTaskRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service:
+                - 'ecs-tasks.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonRDSDataFullAccess'
+        - 'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'
+      Policies:
+        - PolicyName: 'apollo-aoss'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: 'Allow'
+              Action:
+                - 'aoss:APIAccessAll'
+              Resource:
+                - !Ref OpenSearchCollectionArn
+        - PolicyName: 'narrative-session-manager'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: 'Allow'
+              Action:
+                - 'ecs:ExecuteCommand'
+                - 'ssmmessages:CreateControlChannel'
+                - 'ssmmessages:CreateDataChannel'
+                - 'ssmmessages:OpenControlChannel'
+                - 'ssmmessages:OpenDataChannel'
+              Resource: '*'
+              Condition:
+                StringEquals:
+                  "ecs:container-name": !Ref ContainerName
+
+  # -----------------------------------------------------------
+  # Elastic Container Service (ECS) - Containers that host the application
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_ECS.html
+  # -----------------------------------------------------------
+  EcsTaskDefinition:
+    Type: 'AWS::ECS::TaskDefinition'
+    DependsOn:
+      - EcsTaskRole
+    Properties:
+      Cpu: !Ref CpuSize
+      Memory: !Ref MemorySize
+      ExecutionRoleArn: !Ref EcsTaskExecutionRoleId
+      TaskRoleArn: !GetAtt EcsTaskRole.Arn
+      Family: !Sub '${AWS::StackName}-narrative-generator'
+      NetworkMode: 'awsvpc' # Required for Fargate!
+      RuntimePlatform:
+        CpuArchitecture: 'X86_64'
+        OperatingSystemFamily: 'LINUX'
+      RequiresCompatibilities:
+        - 'FARGATE'
+      ContainerDefinitions:
+        # The application container
+        - Image: !Sub "${EcrRepositoryUri}:${EcrImageTag}"
+          DisableNetworking: false
+          Essential: true
+          Interactive: true
+          Name: !Ref ContainerName
+          StartTimeout: !Ref StartTimeout
+          StopTimeout: !Ref StopTimeout
+          # TODO: Figure out what container health check should be run (e.g. memory usage)
+          # HealthCheck:
+          #   Command:  ["CMD-SHELL", "echo hello"]
+          #   Interval: 5
+          #   Retries: 2
+          #   Timeout: 3
+
+          # LogConfiguration:
+          #   LogDriver: 'awslogs'
+          #   Options:
+          #     awslogs-region: !Ref AWS::Region
+          #     awslogs-create-group: true
+          #     awslogs-group: !Ref AWS::StackName
+          #     awslogs-stream-prefix: !Ref ContainerName
+
+          LogConfiguration:
+            LogDriver: 'awsfirelens'
+            Options:
+              Name: 'opensearch'
+              Host: !Sub '${OpenSearchCollection}.${AWS::Region}.aoss.amazonaws.com'
+              Port: 443
+              # Index name MUST be lower case!
+              Index: !Sub "dmp-log-${Env}-narrative-generator"
+              Aws_Auth: 'On'
+              Aws_Region: !Sub '${AWS::Region}'
+              Aws_Service_Name: 'aoss'
+              Trace_Error: 'On'
+              Trace_Output: 'On'
+              Suppress_Type_Name: 'On'
+              tls: 'On'
+              retry_limit: 2
+          PortMappings:
+            # ALB port (The port we are listening on)
+            - ContainerPort: !Ref AppPort
+              Protocol: 'tcp'
+          Environment:
+            - Name: 'AWS_REGION'
+              Value: !Ref AWS::Region
+
+            # NODE_ENV is used by nodeJS to determine how to deploy/run the application (e.g. development, etc.)
+            - Name: 'NODE_ENV'
+              Value: !Ref NodeEnv
+
+            # APP_ENV is used for display purposes in emails and other messaging to indicate
+            # what AWS environment the system is running in (e.g. dev, stg, etc.)
+            - Name: 'ENV'
+              Value: !Ref Env
+
+            # The application as it should appear in emails and other messaging
+            - Name: 'APP_NAME'
+              Value: !Ref AppName
+
+            # The port the service listens on
+            - Name: 'PORT'
+              Value: !Ref AppPort
+
+            # The logging level
+            - Name: 'LOG_LEVEL'
+              Value: !Ref LogLevel
+
+            # The JWT Secret used with auth headers/cookies
+            - Name: 'JWT_SECRET'
+              Value: !Ref JwtSecret
+
+            # The name of the DynamoDB table that stores the DMP JSON data
+            - Name: 'DYNAMO_TABLE_NAME'
+              Value: !Ref DynamoTableName
+
+            # How many times the service should retry requests for DMP JSON data
+            - Name: 'DYNAMO_MAX_ATTEMPTS'
+              Value: !Ref DynamoMaxAttempts
+
+            - Name: 'MYSQL_HOST'
+              Value: !Ref RdsHost
+
+            - Name: 'MYSQL_PORT'
+              Value: !Ref RdsPort
+
+            - Name: 'MYSQL_DATABASE'
+              Value: !Ref RdsDatabase
+
+            - Name: 'MYSQL_USER'
+              Value: !Ref RdsUser
+
+            - Name: 'MYSQL_PASSWORD'
+              Value: !Ref RdsPassword
+
+            - Name: 'MYSQL_CONNECT_TIMEOUT'
+              Value: !Ref RdsConnectionTimeout
+
+            - Name: 'MYSQL_CONNECTION_LIMIT'
+              Value: !Ref RdsConnectionLimit
+
+            - Name: 'MYSQL_QUEUE_LIMIT'
+              Value: !Ref RdsQueueLimit
+
+        # The AWS Firelens sidecar container to send application logs to opensearch
+        - Name: !Sub "${ContainerName}Firelens${Env}"
+          Image: !Sub "${AwsFirelensRepositoryUri}:${AwsFirelensImageTag}"
+          Cpu: 0
+          MemoryReservation: 51
+          Essential: true
+          User: 0
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Sub "/ecs/firelens-${ContainerName}-${Env}"
+              mode: 'non-blocking'
+              awslogs-create-group: true
+              max-buffer-size: '25m'
+              awslogs-region: !Sub '${AWS::Region}'
+              awslogs-stream-prefix: 'firelens'
+          FirelensConfiguration:
+            Type: 'fluentbit'
+            Options:
+              config-file-type: 'file'
+              config-file-value: '/fluent-bit/etc/fluent-bit_customizations.conf'
+          Environment:
+            - Name: 'FLB_LOG_LEVEL'
+              Value: 'debug'
+
+  # Container Service definition
+  EcsService:
+    Type: 'AWS::ECS::Service'
+    DependsOn:
+      - EcsTaskDefinition
+    Properties:
+      ServiceName: !Ref AWS::StackName
+      Cluster: !Ref EcsClusterId
+      DesiredCount: !Ref EcsDesiredServiceCount
+      EnableECSManagedTags: true
+      EnableExecuteCommand: true # Allow session manager
+      HealthCheckGracePeriodSeconds: !Ref HealthCheckGracePeriod
+      LaunchType: 'FARGATE'
+      DeploymentConfiguration:
+        MaximumPercent: !Ref MaximumHealthyContainerPercentage
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+      DeploymentController:
+        # TODO: Investigate blue/green deployment strategies for prod.
+        #       "CODE_DEPLOY" does not allow CF to deploy task changes!
+        Type: !If
+          - IsProd
+          - 'ECS' # 'CODE_DEPLOY'
+          - 'ECS'
+      LoadBalancers:
+        - TargetGroupArn: !Ref AlbTargetGroupArn
+          ContainerPort: !Ref AppPort
+          ContainerName: !Ref ContainerName
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref EcsSecGrpId
+            - !Ref AlbSecGrpId
+          AssignPublicIp: 'ENABLED'
+          Subnets: !Ref Subnets
+      PlatformVersion: 'LATEST'
+      PropagateTags: 'TASK_DEFINITION'
+      SchedulingStrategy: 'REPLICA'
+      TaskDefinition: !Ref EcsTaskDefinition
+
+Outputs:
+  EcsTaskRoleArn:
+    Value: !GetAtt EcsTaskRole.Arn
+
+  EcsServiceArn:
+    Value: !Ref EcsService
+
+  EcsServiceName:
+    Value: !GetAtt EcsService.Name
+
+  EcsTaskId:
+    Value: !Ref EcsTaskDefinition
