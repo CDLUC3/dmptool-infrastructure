@@ -6,6 +6,7 @@
 - Created stage environment (porting over initial files from dmsp_aws_prototype repo) 
 
 ### Updated
+- Commented out All OpenSearch config since the OS Collection is not yet ready in the stg/prd environment
 
 ### Removed
 

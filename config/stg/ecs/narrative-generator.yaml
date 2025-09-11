@@ -14,11 +14,11 @@ parameters:
   EcrRepositoryUri: !stack_output stg/ecr.yaml::EcrRepositoryURI
   EcrImageTag: !stack_attr sceptre_user_data.narrative_generator_tag
 
-  OpenSearchCollection: !stack_attr sceptre_user_data.opensearch_log_collection
-  OpenSearchCollectionArn: !stack_attr sceptre_user_data.opensearch_log_collection_arn
+  # OpenSearchCollection: !stack_attr sceptre_user_data.opensearch_log_collection
+  # OpenSearchCollectionArn: !stack_attr sceptre_user_data.opensearch_log_collection_arn
 
-  AwsFirelensRepositoryUri: !stack_output stg/ecr.yaml::AwsFirelensRepositoryURI
-  AwsFirelensImageTag: "latest"
+  # AwsFirelensRepositoryUri: !stack_output stg/ecr.yaml::AwsFirelensRepositoryURI
+  # AwsFirelensImageTag: "latest"
 
   EcsClusterId: !stack_output stg/ecs/cluster.yaml::EcsFargateClusterId
   EcsTaskExecutionRoleId: !stack_output stg/ecs/cluster.yaml::EcsFargateExecutionRoleId
