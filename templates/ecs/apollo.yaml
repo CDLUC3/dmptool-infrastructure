@@ -315,12 +315,12 @@ Resources:
           Name: !Ref ContainerName
           StartTimeout: !Ref StartTimeout
           StopTimeout: !Ref StopTimeout
-          # TODO: Figure out what container health check should be run (e.g. memory usage)
-          # HealthCheck:
-          #   Command:  ["CMD-SHELL", "echo hello"]
-          #   Interval: 5
-          #   Retries: 2
-          #   Timeout: 3
+          HealthCheck:
+            Command: [ "CMD-SHELL", "curl -f http://localhost:4000/up || exit 1" ]
+            Interval: 30
+            Retries: 3
+            Timeout: 5
+            StartPeriod: 10
           LogConfiguration:
             LogDriver: 'awsfirelens'
             Options:
@@ -494,6 +494,12 @@ Resources:
               max-buffer-size: '25m'
               awslogs-region: !Sub '${AWS::Region}'
               awslogs-stream-prefix: 'firelens'
+          HealthCheck:
+            Command: [ "CMD-SHELL", "pidof fluent-bit >/dev/null || exit 1" ]
+            Interval: 30
+            Retries: 3
+            Timeout: 5
+            StartPeriod: 10
           FirelensConfiguration:
             Type: 'fluentbit'
             Options:

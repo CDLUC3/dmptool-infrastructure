@@ -186,12 +186,12 @@ Resources:
           Name: !Ref ContainerName
           StartTimeout: !Ref StartTimeout
           StopTimeout: !Ref StopTimeout
-          # TODO: Figure out what container health check should be run (e.g. memory usage)
-          # HealthCheck:
-          #   Command:  ["CMD-SHELL", "echo hello"]
-          #   Interval: 5
-          #   Retries: 2
-          #   Timeout: 3
+          HealthCheck:
+            Command:  ["CMD-SHELL", "curl -f http://localhost:3000/healthcheck || exit 1"]
+            Interval: 30
+            Retries: 3
+            Timeout: 5
+            StartPeriod: 10
           LogConfiguration:
             LogDriver: 'awsfirelens'
             Options:
@@ -213,6 +213,9 @@ Resources:
             - ContainerPort: !Ref AppPort
               Protocol: 'tcp'
               Name: !Sub "nextjs_${AppPort}"
+            - ContainerPort: 443
+              Protocol: 'tcp'
+              Name: "nextjs_443"
           Environment:
             # The application as it should appear in emails and other messaging
             - Name: 'APP_NAME'
@@ -265,6 +268,12 @@ Resources:
               max-buffer-size: '25m'
               awslogs-region: !Sub '${AWS::Region}'
               awslogs-stream-prefix: 'firelens'
+          HealthCheck:
+            Command: [ "CMD-SHELL", "pidof fluent-bit >/dev/null || exit 1" ]
+            Interval: 30
+            Retries: 3
+            Timeout: 5
+            StartPeriod: 10
           FirelensConfiguration:
             Type: 'fluentbit'
           Environment:
@@ -319,7 +328,7 @@ Resources:
             PortName: !Sub "nextjs_${AppPort}"
             ClientAliases:
               - DnsName: 'nextjs'
-                Port: !Ref AppPort
+                Port: 443
 
 Outputs:
   EcsServiceArn:
