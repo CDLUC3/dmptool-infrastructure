@@ -7,6 +7,7 @@
 
 ### Updated
 - 2025-09-10 -- Bumped MySQL to v8.4.6
+- Updated Fluentbit config to push everything into an `extra` field and then pull only the fields we want to be able to filter by to the top level.
 
 ### Removed
 
