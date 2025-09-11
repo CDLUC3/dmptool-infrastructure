@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'CloudMap service connect'
+
+Parameters:
+  Env:
+    Type: 'String'
+    Default: 'dev'
+
+Resources:
+  # AWS CloudMap resources to support service connect (allowing ECS containers to find
+  # other services by name)
+  #   See: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/AWS_ServiceDiscovery.html
+  Namespace:
+    Type: 'AWS::ServiceDiscovery::HttpNamespace'
+    Properties:
+      Description: !Sub "CloudMap namespace for DMP Tool ${Env} ECS services"
+      Name: !Sub "dmptool-${Env}"
+
+Outputs:
+  NamespaceId:
+    Value: !Ref Namespace
+
+  NamespaceARN:
+    Value: !GetAtt Namespace.Arn

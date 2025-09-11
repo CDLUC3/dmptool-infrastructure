@@ -37,6 +37,9 @@ Parameters:
   ContainerName:
     Type: 'String'
 
+  CloudMapNamespaceARN:
+    Type: 'String'
+
   AppPort:
     Type: 'Number'
 
@@ -256,6 +259,7 @@ Resources:
             # ALB port (The port we are listening on)
             - ContainerPort: !Ref AppPort
               Protocol: 'tcp'
+              Name: !Sub "narrative_${AppPort}"
           Environment:
             - Name: 'AWS_REGION'
               Value: !Ref AWS::Region
@@ -382,6 +386,15 @@ Resources:
       PropagateTags: 'TASK_DEFINITION'
       SchedulingStrategy: 'REPLICA'
       TaskDefinition: !Ref EcsTaskDefinition
+      ServiceConnectConfiguration:
+        Enabled: true
+        Namespace: !Ref CloudMapNamespaceARN
+        Services:
+          - DiscoveryName: 'narrative'
+            PortName: !Sub "narrative_${AppPort}"
+            ClientAliases:
+              - DnsName: 'narrative'
+                Port: !Ref AppPort
 
 Outputs:
   EcsTaskRoleArn:

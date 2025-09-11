@@ -37,6 +37,9 @@ Parameters:
   ContainerName:
     Type: 'String'
 
+  CloudMapNamespaceARN:
+    Type: 'String'
+
   AppPort:
     Type: 'Number'
 
@@ -209,6 +212,7 @@ Resources:
             # ALB port (The port we are listening on)
             - ContainerPort: !Ref AppPort
               Protocol: 'tcp'
+              Name: !Sub "nextjs_${AppPort}"
           Environment:
             # The application as it should appear in emails and other messaging
             - Name: 'APP_NAME'
@@ -235,7 +239,7 @@ Resources:
               Value: !Sub "${Domain}/graphql"
 
             - Name: 'SERVER_ENDPOINT'
-              Value: !Sub "https://${Domain}"
+              Value: !Sub "http://apollo:4000"
 
             # CDN endpoint
             - Name: "CDN_ENDPOINT"
@@ -307,6 +311,15 @@ Resources:
       PropagateTags: 'TASK_DEFINITION'
       SchedulingStrategy: 'REPLICA'
       TaskDefinition: !Ref EcsTaskDefinition
+      ServiceConnectConfiguration:
+        Enabled: true
+        Namespace: !Ref CloudMapNamespaceARN
+        Services:
+          - DiscoveryName: 'nextjs'
+            PortName: !Sub "nextjs_${AppPort}"
+            ClientAliases:
+              - DnsName: 'nextjs'
+                Port: !Ref AppPort
 
 Outputs:
   EcsServiceArn:

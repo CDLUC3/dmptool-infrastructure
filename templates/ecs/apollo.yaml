@@ -37,6 +37,9 @@ Parameters:
   ContainerName:
     Type: 'String'
 
+  CloudMapNamespaceARN:
+    Type: 'String'
+
   DefaultAffiliationUri:
     Type: 'String'
 
@@ -340,6 +343,7 @@ Resources:
               Protocol: 'tcp'
             # ALB port (The port we are listening on)
             - ContainerPort: !Ref AppPort
+              Name: !Sub "apollo_${AppPort}"
               Protocol: 'tcp'
             # RDS port (The MySQL DB port)
             - ContainerPort: !Ref DbPort
@@ -539,6 +543,15 @@ Resources:
       PropagateTags: 'TASK_DEFINITION'
       SchedulingStrategy: 'REPLICA'
       TaskDefinition: !Ref EcsTaskDefinition
+      ServiceConnectConfiguration:
+        Enabled: true
+        Namespace: !Ref CloudMapNamespaceARN
+        Services:
+          - DiscoveryName: 'apollo'
+            PortName: !Sub "apollo_${AppPort}"
+            ClientAliases:
+              - DnsName: 'apollo'
+                Port: !Ref AppPort
 
 Outputs:
   EcsTaskRoleArn:

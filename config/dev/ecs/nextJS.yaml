@@ -14,6 +14,8 @@ parameters:
   Domain: !stack_attr sceptre_user_data.domain
   ContainerName: !stack_attr sceptre_user_data.nextjs_container_name
 
+  CloudMapNamespaceARN: !stack_output dev/cloud-map.yaml::NamespaceARN
+
   AppPort: !stack_attr sceptre_user_data.nextjs_container_port
 
   EcrRepositoryUri: !stack_output dev/ecr.yaml::EcrRepositoryURI
