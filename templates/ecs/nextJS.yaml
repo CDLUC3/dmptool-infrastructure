@@ -233,9 +233,7 @@ Resources:
             - ContainerPort: '3030' # Service connect port
               Protocol: 'tcp'
               Name: 'nextjs_3030'
-            - ContainerPort: 9229 # Debugging port
-              Protocol: 'tcp'
-              Name: 'nextjs_9229'
+
           Environment:
             # The application as it should appear in emails and other messaging
             - Name: 'APP_NAME'

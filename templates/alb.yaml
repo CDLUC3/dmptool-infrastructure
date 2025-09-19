@@ -131,6 +131,9 @@ Resources:
       HealthCheckTimeoutSeconds: 60
       UnhealthyThresholdCount: 2
       Matcher:
+        # TODO: For some reason the Healthcheck is returning a 301 instead of 200
+        #       so expanding this to allow for that. When you hit the path from a
+        #       browser or curl though it returns a 200
         HttpCode: '200-399'
       VpcId: !Ref VpcId
       Port: !Ref NextJsPort
