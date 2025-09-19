@@ -24,6 +24,21 @@ Parameters:
   OpenSearchCollectionArn:
     Type: 'String'
 
+  ApolloServerPort:
+    Type: 'Number'
+    Default: 4000
+
+  NarrativeGeneratorPort:
+    Type: 'Number'
+    Default: 4030
+
+  AwsFirelensRepositoryUri:
+    Type: 'String'
+
+  AwsFirelensImageTag:
+    Type: 'String'
+    Default: 'latest'
+
   Env:
     Type: 'String'
     Default: 'dev'
@@ -186,12 +201,12 @@ Resources:
           Name: !Ref ContainerName
           StartTimeout: !Ref StartTimeout
           StopTimeout: !Ref StopTimeout
-          HealthCheck:
-            Command:  ["CMD-SHELL", "curl -f http://localhost:3000/healthcheck || exit 1"]
-            Interval: 30
-            Retries: 3
-            Timeout: 5
-            StartPeriod: 10
+          # HealthCheck:
+          #   Command:  ["CMD-SHELL", "curl -f http://127.0.0.1:3000/en-US/login || exit 1"]
+          #   Interval: 30
+          #   Retries: 3
+          #   Timeout: 5
+          #   StartPeriod: 60
           LogConfiguration:
             LogDriver: 'awsfirelens'
             Options:
@@ -209,13 +224,18 @@ Resources:
               tls: 'On'
               retry_limit: 2
           PortMappings:
-            # ALB port (The port we are listening on)
-            - ContainerPort: !Ref AppPort
+            - ContainerPort: !Ref AppPort # ALB port (The port we are listening on)
               Protocol: 'tcp'
               Name: !Sub "nextjs_${AppPort}"
             - ContainerPort: 443
               Protocol: 'tcp'
               Name: "nextjs_443"
+            - ContainerPort: '3030' # Service connect port
+              Protocol: 'tcp'
+              Name: 'nextjs_3030'
+            - ContainerPort: 9229 # Debugging port
+              Protocol: 'tcp'
+              Name: 'nextjs_9229'
           Environment:
             # The application as it should appear in emails and other messaging
             - Name: 'APP_NAME'
@@ -241,8 +261,14 @@ Resources:
             - Name: 'NEXT_PUBLIC_GRAPHQL_SERVER_ENDPOINT'
               Value: !Sub "${Domain}/graphql"
 
+            - Name: "NEXT_PUBLIC_NARRATIVE_ENDPOINT"
+              Value: !Sub "http://narrative:${NarrativeGeneratorPort}"
+
             - Name: 'SERVER_ENDPOINT'
-              Value: !Sub "http://apollo:4000"
+              Value: !Sub "http://apollo:${ApolloServerPort}"
+
+            - Name: "SERVER_LOG_LEVEL"
+              Value: !Ref LogLevel
 
             # CDN endpoint
             - Name: "CDN_ENDPOINT"
@@ -254,7 +280,7 @@ Resources:
 
         # The AWS Firelens sidecar container to send application logs to opensearch
         - Name: !Sub "${ContainerName}Firelens${Env}"
-          Image: "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
+          Image: !Sub "${AwsFirelensRepositoryUri}:${AwsFirelensImageTag}"
           Cpu: 0
           MemoryReservation: 51
           Essential: true
@@ -325,10 +351,10 @@ Resources:
         Namespace: !Ref CloudMapNamespaceARN
         Services:
           - DiscoveryName: 'nextjs'
-            PortName: !Sub "nextjs_${AppPort}"
+            PortName: 'nextjs_3030'
             ClientAliases:
               - DnsName: 'nextjs'
-                Port: 443
+                Port: !Ref AppPort
 
 Outputs:
   EcsServiceArn:

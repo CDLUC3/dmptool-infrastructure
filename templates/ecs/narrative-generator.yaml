@@ -229,8 +229,10 @@ Resources:
             Interval: 30
             Retries: 3
             Timeout: 5
-            StartPeriod: 10
+            StartPeriod: 30
 
+          # NOTE: Leave this here for reference in case we want to disable Firelens and
+          #       start logging to CloudWatch again.
           # LogConfiguration:
           #   LogDriver: 'awslogs'
           #   Options:
@@ -320,6 +322,11 @@ Resources:
 
             - Name: 'MYSQL_QUEUE_LIMIT'
               Value: !Ref RdsQueueLimit
+
+            # Firelens sidecar won't redeploy unless this defintion changes
+            # Change this value to force a redeploy of the firelens sidecar
+            - Name: 'DUMMY_TO_TRIGGER_REDEPLOY_OF_SIDECARS'
+              Value: 'v1'
 
         # The AWS Firelens sidecar container to send application logs to opensearch
         - Name: !Sub "${ContainerName}Firelens${Env}"
