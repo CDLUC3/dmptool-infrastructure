@@ -69,7 +69,8 @@ Resources:
             ManagedRuleGroupStatement:
               VendorName: 'AWS'
               Name: 'AWSManagedRulesCommonRuleSet'
-              ExcludedRules: []
+              ExcludedRules:
+               - Name: 'CrossSiteScripting_BODY'
         - Name: 'AWS-AWSManagedRulesKnownBadInputsRuleSet'
           Priority: 2
           OverrideAction:
