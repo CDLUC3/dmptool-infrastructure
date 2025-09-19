@@ -1,6 +1,8 @@
 # Changle Log
 
 ### Added
+- Added service connect configuration to all ECS services
+- Added CloudMap Namespace to support service connect
 - Added exception to WAF to allow TinyMCE content to pass through
 - Added CodeBuild, CodePipeline and ECS service for the new dmptool-narrative-generator service
 - Added Firelens and Fluentbit long configuration for all ECS tasks
