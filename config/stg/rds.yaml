@@ -22,7 +22,7 @@ parameters:
   # Valid options are based on the DB engine.
   # Use this to see what versions are availanle: `aws rds describe-db-engine-versions --default-only --engine mysql`
   DbEngine: 'mysql'
-  DbEngineVersion: '8.4.4'
+  DbEngineVersion: '8.4.6'
   LicenseModel: 'general-public-license'
 
   DbBackupRetentionDays: '35'
