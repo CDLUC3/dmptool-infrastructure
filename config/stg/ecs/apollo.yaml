@@ -54,6 +54,12 @@ parameters:
   BcryptHashSecret: !ssm /uc3/dmp/tool/stg/BcryptHashSecret
   HashTokenSecret: !ssm /uc3/dmp/tool/stg/CacheHashSecret
 
+  OpenSearchCollection: !stack_attr sceptre_user_data.opensearch_log_collection
+  OpenSearchCollectionArn: !stack_attr sceptre_user_data.opensearch_log_collection_arn
+
+  AwsFirelensRepositoryUri: !stack_output stg/ecr.yaml::AwsFirelensRepositoryURI
+  AwsFirelensImageTag: "latest"
+
   JwtSecret: !ssm /uc3/dmp/tool/stg/JWTSecret
   JwtTtl: '1800000' # 30 minutes (in milliseconds)
   JwtRefreshSecret: !ssm /uc3/dmp/tool/stg/JWTRefreshSecret

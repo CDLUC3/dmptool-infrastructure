@@ -326,3 +326,6 @@ Outputs:
 
   EcsTaskId:
     Value: !Ref EcsTaskDefinition
+
+  EcsTaskRoleArn:
+    Value: !GetAtt EcsTaskRole.Arn

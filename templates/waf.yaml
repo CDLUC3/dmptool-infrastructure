@@ -82,7 +82,8 @@ Resources:
             ManagedRuleGroupStatement:
               VendorName: 'AWS'
               Name: 'AWSManagedRulesKnownBadInputsRuleSet'
-              ExcludedRules: []
+              ExcludedRules:
+                - Name: 'CrossSiteScripting_BODY'
 
   # -----------------------------------------------------------
   # WAF Logging Configuration - send logs to S3 bucket for ingestion to OpenSearch

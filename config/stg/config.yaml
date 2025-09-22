@@ -36,6 +36,10 @@ sceptre_user_data:
   # The Hosted Zone
   hosted_zone: !stack_output_external uc3-ops-aws-prd-route53::HostedZoneIdUc3StgCdlibNet cdl-uc3-prd
 
+  # OpenSearch
+  opensearch_log_collection: !stack_output_external uc3-ops-prd-aoss-collections::Uc3DmpAossLogsCollection cdl-uc3-prd
+  opensearch_log_collection_arn: !stack_output_external uc3-ops-prd-aoss-collections::Uc3DmpAossLogsCollectionArn cdl-uc3-prd
+
   # Environment specific variables
   app: 'dmptool'
   env: 'stg'
