@@ -37,6 +37,9 @@ Parameters:
   ContainerName:
     Type: 'String'
 
+  CloudMapNamespaceARN:
+    Type: 'String'
+
   AppPort:
     Type: 'Number'
 
@@ -221,13 +224,15 @@ Resources:
           Name: !Ref ContainerName
           StartTimeout: !Ref StartTimeout
           StopTimeout: !Ref StopTimeout
-          # TODO: Figure out what container health check should be run (e.g. memory usage)
-          # HealthCheck:
-          #   Command:  ["CMD-SHELL", "echo hello"]
-          #   Interval: 5
-          #   Retries: 2
-          #   Timeout: 3
+          HealthCheck:
+            Command:  ["CMD-SHELL", "curl -f http://localhost:4030/narrative-health || exit 1"]
+            Interval: 30
+            Retries: 3
+            Timeout: 5
+            StartPeriod: 30
 
+          # NOTE: Leave this here for reference in case we want to disable Firelens and
+          #       start logging to CloudWatch again.
           # LogConfiguration:
           #   LogDriver: 'awslogs'
           #   Options:
@@ -256,6 +261,7 @@ Resources:
             # ALB port (The port we are listening on)
             - ContainerPort: !Ref AppPort
               Protocol: 'tcp'
+              Name: !Sub "narrative_${AppPort}"
           Environment:
             - Name: 'AWS_REGION'
               Value: !Ref AWS::Region
@@ -317,13 +323,25 @@ Resources:
             - Name: 'MYSQL_QUEUE_LIMIT'
               Value: !Ref RdsQueueLimit
 
-       # The AWS Firelens sidecar container to send application logs to opensearch
+            # The AWS Firelens sidecar container to send application logs to opensearch
+            # Firelens sidecar won't redeploy unless this defintion changes
+            # Change this value to force a redeploy of the firelens sidecar
+            - Name: 'DUMMY_TO_TRIGGER_REDEPLOY_OF_SIDECARS'
+              Value: 'v1'
+
+        # The AWS Firelens sidecar container to send application logs to opensearch
         - Name: !Sub "${ContainerName}Firelens${Env}"
           Image: !Sub "${AwsFirelensRepositoryUri}:${AwsFirelensImageTag}"
           Cpu: 0
           MemoryReservation: 51
           Essential: true
           User: 0
+          HealthCheck:
+            Command: [ "CMD-SHELL", "pidof fluent-bit >/dev/null || exit 1" ]
+            Interval: 30
+            Retries: 3
+            Timeout: 5
+            StartPeriod: 10
           LogConfiguration:
             LogDriver: 'awslogs'
             Options:
@@ -382,6 +400,15 @@ Resources:
       PropagateTags: 'TASK_DEFINITION'
       SchedulingStrategy: 'REPLICA'
       TaskDefinition: !Ref EcsTaskDefinition
+      ServiceConnectConfiguration:
+        Enabled: true
+        Namespace: !Ref CloudMapNamespaceARN
+        Services:
+          - DiscoveryName: 'narrative'
+            PortName: !Sub "narrative_${AppPort}"
+            ClientAliases:
+              - DnsName: 'narrative'
+                Port: !Ref AppPort
 
 Outputs:
   EcsTaskRoleArn:

@@ -18,11 +18,26 @@ Parameters:
   AlbSecGrpId:
     Type: 'String'
 
-#  OpenSearchCollection:
-#    Type: 'String'
-#
-#  OpenSearchCollectionArn:
-#    Type: 'String'
+  OpenSearchCollection:
+    Type: 'String'
+
+  OpenSearchCollectionArn:
+    Type: 'String'
+
+  ApolloServerPort:
+    Type: 'Number'
+    Default: 4000
+
+  NarrativeGeneratorPort:
+    Type: 'Number'
+    Default: 4030
+
+  AwsFirelensRepositoryUri:
+    Type: 'String'
+
+  AwsFirelensImageTag:
+    Type: 'String'
+    Default: 'latest'
 
   Env:
     Type: 'String'
@@ -35,6 +50,9 @@ Parameters:
     Type: 'String'
 
   ContainerName:
+    Type: 'String'
+
+  CloudMapNamespaceARN:
     Type: 'String'
 
   AppPort:
@@ -130,15 +148,15 @@ Resources:
         - 'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'
         - 'arn:aws:iam::aws:policy/AmazonElastiCacheFullAccess'
       Policies:
-#        - PolicyName: 'nexjs-aoss'
-#          PolicyDocument:
-#            Version: '2012-10-17'
-#            Statement:
-#              - Effect: 'Allow'
-#                Action:
-#                  - 'aoss:APIAccessAll'
-#                Resource:
-#                  - !Ref OpenSearchCollectionArn
+        - PolicyName: 'nexjs-aoss'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'aoss:APIAccessAll'
+                Resource:
+                  - !Ref OpenSearchCollectionArn
         - PolicyName: 'nextjs-session-manager'
           PolicyDocument:
             Version: '2012-10-17'
@@ -183,13 +201,12 @@ Resources:
           Name: !Ref ContainerName
           StartTimeout: !Ref StartTimeout
           StopTimeout: !Ref StopTimeout
-          # TODO: Figure out what container health check should be run (e.g. memory usage)
           # HealthCheck:
-          #   Command:  ["CMD-SHELL", "echo hello"]
-          #   Interval: 5
-          #   Retries: 2
-          #   Timeout: 3
-
+          #   Command:  ["CMD-SHELL", "curl -f http://127.0.0.1:3000/en-US/login || exit 1"]
+          #   Interval: 30
+          #   Retries: 3
+          #   Timeout: 5
+          #   StartPeriod: 60
           LogConfiguration:
             LogDriver: 'awslogs'
             Options:
@@ -198,26 +215,33 @@ Resources:
               awslogs-group: !Ref AWS::StackName
               awslogs-stream-prefix: !Ref ContainerName
 
-#          LogConfiguration:
-#            LogDriver: 'awsfirelens'
-#            Options:
-#              Name: 'opensearch'
-#              Host: !Sub '${OpenSearchCollection}.${AWS::Region}.aoss.amazonaws.com'
-#              Port: 443
-#              # Index name MUST be lower case!
-#              Index: !Sub "dmp-log-${Env}-nextjs"
-#              Aws_Auth: 'On'
-#              Aws_Region: !Sub '${AWS::Region}'
-#              Aws_Service_Name: 'aoss'
-#              Trace_Error: 'On'
-#              Trace_Output: 'On'
-#              Suppress_Type_Name: 'On'
-#              tls: 'On'
-#              retry_limit: 2
+          LogConfiguration:
+            LogDriver: 'awsfirelens'
+            Options:
+              Name: 'opensearch'
+              Host: !Sub '${OpenSearchCollection}.${AWS::Region}.aoss.amazonaws.com'
+              Port: 443
+              # Index name MUST be lower case!
+              Index: !Sub "dmp-log-${Env}-nextjs"
+              Aws_Auth: 'On'
+              Aws_Region: !Sub '${AWS::Region}'
+              Aws_Service_Name: 'aoss'
+              Trace_Error: 'On'
+              Trace_Output: 'On'
+              Suppress_Type_Name: 'On'
+              tls: 'On'
+              retry_limit: 2
           PortMappings:
-            # ALB port (The port we are listening on)
-            - ContainerPort: !Ref AppPort
+            - ContainerPort: !Ref AppPort # ALB port (The port we are listening on)
               Protocol: 'tcp'
+              Name: !Sub "nextjs_${AppPort}"
+            - ContainerPort: 443
+              Protocol: 'tcp'
+              Name: "nextjs_443"
+            - ContainerPort: '3030' # Service connect port
+              Protocol: 'tcp'
+              Name: 'nextjs_3030'
+
           Environment:
             # The application as it should appear in emails and other messaging
             - Name: 'APP_NAME'
@@ -243,8 +267,14 @@ Resources:
             - Name: 'NEXT_PUBLIC_GRAPHQL_SERVER_ENDPOINT'
               Value: !Sub "${Domain}/graphql"
 
+            - Name: "NEXT_PUBLIC_NARRATIVE_ENDPOINT"
+              Value: !Sub "http://narrative:${NarrativeGeneratorPort}"
+
             - Name: 'SERVER_ENDPOINT'
-              Value: !Sub "https://${Domain}"
+              Value: !Sub "http://apollo:${ApolloServerPort}"
+
+            - Name: "SERVER_LOG_LEVEL"
+              Value: !Ref LogLevel
 
             # CDN endpoint
             - Name: "CDN_ENDPOINT"
@@ -254,27 +284,33 @@ Resources:
             - Name: 'JWT_SECRET'
               Value: !Ref JwtSecret
 
-#        # The AWS Firelens sidecar container to send application logs to opensearch
-#        - Name: !Sub "${ContainerName}Firelens${Env}"
-#          Image: "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
-#          Cpu: 0
-#          MemoryReservation: 51
-#          Essential: true
-#          User: 0
-#          LogConfiguration:
-#            LogDriver: 'awslogs'
-#            Options:
-#              awslogs-group: !Sub "/ecs/firelens-${ContainerName}-${Env}"
-#              mode: 'non-blocking'
-#              awslogs-create-group: true
-#              max-buffer-size: '25m'
-#              awslogs-region: !Sub '${AWS::Region}'
-#              awslogs-stream-prefix: 'firelens'
-#          FirelensConfiguration:
-#            Type: 'fluentbit'
-#          Environment:
-#            - Name: 'FLB_LOG_LEVEL'
-#              Value: 'debug'
+        # The AWS Firelens sidecar container to send application logs to opensearch
+        - Name: !Sub "${ContainerName}Firelens${Env}"
+          Image: !Sub "${AwsFirelensRepositoryUri}:${AwsFirelensImageTag}"
+          Cpu: 0
+          MemoryReservation: 51
+          Essential: true
+          User: 0
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Sub "/ecs/firelens-${ContainerName}-${Env}"
+              mode: 'non-blocking'
+              awslogs-create-group: true
+              max-buffer-size: '25m'
+              awslogs-region: !Sub '${AWS::Region}'
+              awslogs-stream-prefix: 'firelens'
+          HealthCheck:
+            Command: [ "CMD-SHELL", "pidof fluent-bit >/dev/null || exit 1" ]
+            Interval: 30
+            Retries: 3
+            Timeout: 5
+            StartPeriod: 10
+          FirelensConfiguration:
+            Type: 'fluentbit'
+          Environment:
+            - Name: 'FLB_LOG_LEVEL'
+              Value: 'debug'
 
   # Container Service definition
   EcsService:
@@ -316,6 +352,15 @@ Resources:
       PropagateTags: 'TASK_DEFINITION'
       SchedulingStrategy: 'REPLICA'
       TaskDefinition: !Ref EcsTaskDefinition
+      ServiceConnectConfiguration:
+        Enabled: true
+        Namespace: !Ref CloudMapNamespaceARN
+        Services:
+          - DiscoveryName: 'nextjs'
+            PortName: 'nextjs_3030'
+            ClientAliases:
+              - DnsName: 'nextjs'
+                Port: !Ref AppPort
 
 Outputs:
   EcsServiceArn:
