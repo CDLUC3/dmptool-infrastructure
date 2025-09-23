@@ -18,11 +18,11 @@ Parameters:
   AlbSecGrpId:
     Type: 'String'
 
-#  OpenSearchCollection:
-#    Type: 'String'
-#
-#  OpenSearchCollectionArn:
-#    Type: 'String'
+  OpenSearchCollection:
+    Type: 'String'
+
+  OpenSearchCollectionArn:
+    Type: 'String'
 
   Env:
     Type: 'String'
@@ -35,6 +35,9 @@ Parameters:
     Type: 'String'
 
   ContainerName:
+    Type: 'String'
+
+  CloudMapNamespaceARN:
     Type: 'String'
 
   AppPort:
@@ -50,12 +53,12 @@ Parameters:
   EcrImageTag:
     Type: 'String'
 
-#  AwsFirelensRepositoryUri:
-#    Type: 'String'
-#
-#  AwsFirelensImageTag:
-#    Type: 'String'
-#    Default: 'latest'
+  AwsFirelensRepositoryUri:
+    Type: 'String'
+
+  AwsFirelensImageTag:
+    Type: 'String'
+    Default: 'latest'
 
   AlbTargetGroupArn:
     Type: 'String'
@@ -167,15 +170,15 @@ Resources:
         - 'arn:aws:iam::aws:policy/AmazonRDSDataFullAccess'
         - 'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'
       Policies:
-#        - PolicyName: 'apollo-aoss'
-#          PolicyDocument:
-#            Version: '2012-10-17'
-#            Statement:
-#              Effect: 'Allow'
-#              Action:
-#                - 'aoss:APIAccessAll'
-#              Resource:
-#                - !Ref OpenSearchCollectionArn
+        - PolicyName: 'apollo-aoss'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: 'Allow'
+              Action:
+                - 'aoss:APIAccessAll'
+              Resource:
+                - !Ref OpenSearchCollectionArn
         - PolicyName: 'narrative-session-manager'
           PolicyDocument:
             Version: '2012-10-17'
@@ -221,41 +224,44 @@ Resources:
           Name: !Ref ContainerName
           StartTimeout: !Ref StartTimeout
           StopTimeout: !Ref StopTimeout
-          # TODO: Figure out what container health check should be run (e.g. memory usage)
-          # HealthCheck:
-          #   Command:  ["CMD-SHELL", "echo hello"]
-          #   Interval: 5
-          #   Retries: 2
-          #   Timeout: 3
+          HealthCheck:
+            Command:  ["CMD-SHELL", "curl -f http://localhost:4030/narrative-health || exit 1"]
+            Interval: 30
+            Retries: 3
+            Timeout: 5
+            StartPeriod: 30
+
+          # NOTE: Leave this here for reference in case we want to disable Firelens and
+          #       start logging to CloudWatch again.
+          # LogConfiguration:
+          #   LogDriver: 'awslogs'
+          #   Options:
+          #     awslogs-region: !Ref AWS::Region
+          #     awslogs-create-group: true
+          #     awslogs-group: !Ref AWS::StackName
+          #     awslogs-stream-prefix: !Ref ContainerName
 
           LogConfiguration:
-            LogDriver: 'awslogs'
+            LogDriver: 'awsfirelens'
             Options:
-              awslogs-region: !Ref AWS::Region
-              awslogs-create-group: true
-              awslogs-group: !Ref AWS::StackName
-              awslogs-stream-prefix: !Ref ContainerName
-
-#          LogConfiguration:
-#            LogDriver: 'awsfirelens'
-#            Options:
-#              Name: 'opensearch'
-#              Host: !Sub '${OpenSearchCollection}.${AWS::Region}.aoss.amazonaws.com'
-#              Port: 443
-#              # Index name MUST be lower case!
-#              Index: !Sub "dmp-log-${Env}-narrative-generator"
-#              Aws_Auth: 'On'
-#              Aws_Region: !Sub '${AWS::Region}'
-#              Aws_Service_Name: 'aoss'
-#              Trace_Error: 'On'
-#              Trace_Output: 'On'
-#              Suppress_Type_Name: 'On'
-#              tls: 'On'
-#              retry_limit: 2
+              Name: 'opensearch'
+              Host: !Sub '${OpenSearchCollection}.${AWS::Region}.aoss.amazonaws.com'
+              Port: 443
+              # Index name MUST be lower case!
+              Index: !Sub "dmp-log-${Env}-narrative-generator"
+              Aws_Auth: 'On'
+              Aws_Region: !Sub '${AWS::Region}'
+              Aws_Service_Name: 'aoss'
+              Trace_Error: 'On'
+              Trace_Output: 'On'
+              Suppress_Type_Name: 'On'
+              tls: 'On'
+              retry_limit: 2
           PortMappings:
             # ALB port (The port we are listening on)
             - ContainerPort: !Ref AppPort
               Protocol: 'tcp'
+              Name: !Sub "narrative_${AppPort}"
           Environment:
             - Name: 'AWS_REGION'
               Value: !Ref AWS::Region
@@ -317,30 +323,42 @@ Resources:
             - Name: 'MYSQL_QUEUE_LIMIT'
               Value: !Ref RdsQueueLimit
 
-#        # The AWS Firelens sidecar container to send application logs to opensearch
-#        - Name: !Sub "${ContainerName}Firelens${Env}"
-#          Image: !Sub "${AwsFirelensRepositoryUri}:${AwsFirelensImageTag}"
-#          Cpu: 0
-#          MemoryReservation: 51
-#          Essential: true
-#          User: 0
-#          LogConfiguration:
-#            LogDriver: 'awslogs'
-#            Options:
-#              awslogs-group: !Sub "/ecs/firelens-${ContainerName}-${Env}"
-#              mode: 'non-blocking'
-#              awslogs-create-group: true
-#              max-buffer-size: '25m'
-#              awslogs-region: !Sub '${AWS::Region}'
-#              awslogs-stream-prefix: 'firelens'
-#          FirelensConfiguration:
-#            Type: 'fluentbit'
-#            Options:
-#              config-file-type: 'file'
-#              config-file-value: '/fluent-bit/etc/fluent-bit_customizations.conf'
-#          Environment:
-#            - Name: 'FLB_LOG_LEVEL'
-#              Value: 'debug'
+            # The AWS Firelens sidecar container to send application logs to opensearch
+            # Firelens sidecar won't redeploy unless this defintion changes
+            # Change this value to force a redeploy of the firelens sidecar
+            - Name: 'DUMMY_TO_TRIGGER_REDEPLOY_OF_SIDECARS'
+              Value: 'v1.1'
+
+        # The AWS Firelens sidecar container to send application logs to opensearch
+        - Name: !Sub "${ContainerName}Firelens${Env}"
+          Image: !Sub "${AwsFirelensRepositoryUri}:${AwsFirelensImageTag}"
+          Cpu: 0
+          MemoryReservation: 51
+          Essential: true
+          User: 0
+          HealthCheck:
+            Command: [ "CMD-SHELL", "pidof fluent-bit >/dev/null || exit 1" ]
+            Interval: 30
+            Retries: 3
+            Timeout: 5
+            StartPeriod: 10
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Sub "/ecs/firelens-${ContainerName}-${Env}"
+              mode: 'non-blocking'
+              awslogs-create-group: true
+              max-buffer-size: '25m'
+              awslogs-region: !Sub '${AWS::Region}'
+              awslogs-stream-prefix: 'firelens'
+          FirelensConfiguration:
+            Type: 'fluentbit'
+            Options:
+              config-file-type: 'file'
+              config-file-value: '/fluent-bit/etc/fluent-bit_customizations.conf'
+          Environment:
+            - Name: 'FLB_LOG_LEVEL'
+              Value: 'debug'
 
   # Container Service definition
   EcsService:
@@ -382,6 +400,15 @@ Resources:
       PropagateTags: 'TASK_DEFINITION'
       SchedulingStrategy: 'REPLICA'
       TaskDefinition: !Ref EcsTaskDefinition
+      ServiceConnectConfiguration:
+        Enabled: true
+        Namespace: !Ref CloudMapNamespaceARN
+        Services:
+          - DiscoveryName: 'narrative'
+            PortName: !Sub "narrative_${AppPort}"
+            ClientAliases:
+              - DnsName: 'narrative'
+                Port: !Ref AppPort
 
 Outputs:
   EcsTaskRoleArn:

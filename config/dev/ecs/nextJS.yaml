@@ -14,6 +14,8 @@ parameters:
   Domain: !stack_attr sceptre_user_data.domain
   ContainerName: !stack_attr sceptre_user_data.nextjs_container_name
 
+  CloudMapNamespaceARN: !stack_output dev/cloud-map.yaml::NamespaceARN
+
   AppPort: !stack_attr sceptre_user_data.nextjs_container_port
 
   EcrRepositoryUri: !stack_output dev/ecr.yaml::EcrRepositoryURI
@@ -29,6 +31,12 @@ parameters:
 
   OpenSearchCollection: !stack_attr sceptre_user_data.opensearch_log_collection
   OpenSearchCollectionArn: !stack_attr sceptre_user_data.opensearch_log_collection_arn
+
+  ApolloServerPort: !stack_attr sceptre_user_data.apollo_container_port
+  NarrativeGeneratorPort: !stack_attr sceptre_user_data.narrative_generator_port
+
+  AwsFirelensRepositoryUri: !stack_output dev/ecr.yaml::AwsFirelensRepositoryURI
+  AwsFirelensImageTag: "latest"
 
   EcsDesiredServiceCount: '2'
 
