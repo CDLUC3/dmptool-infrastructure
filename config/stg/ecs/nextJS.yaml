@@ -23,6 +23,8 @@ parameters:
   AwsFirelensImageTag: "latest"
 
   AppPort: !stack_attr sceptre_user_data.nextjs_container_port
+  ApolloServerPort: !stack_attr sceptre_user_data.apollo_container_port
+  NarrativeGeneratorPort: !stack_attr sceptre_user_data.narrative_generator_port
 
   EcrRepositoryUri: !stack_output stg/ecr.yaml::EcrRepositoryURI
 
