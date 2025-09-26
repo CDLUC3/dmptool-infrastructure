@@ -1,6 +1,7 @@
 # Changle Log
 
 ### Added
+- Added ORCID env variables for Apollo ECS tasks
 - Added service connect configuration to all ECS services
 - Added CloudMap Namespace to support service connect
 - Added exception to WAF to allow TinyMCE content to pass through
