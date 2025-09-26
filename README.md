@@ -129,6 +129,8 @@ You need to initialize the following env variables that are specific to the DMP 
 - Cache Token Secret: `aws ssm put-parameter --name /uc3/dmp/tool/[env]/CacheHashSecret --value [Secret] --type SecureString --overwrite`
 - JWT Secret: `aws ssm put-parameter --name /uc3/dmp/tool/[env]/JWTSecret --value [Secret] --type SecureString --overwrite`
 - Refresh Token Secret: `aws ssm put-parameter --name /uc3/dmp/tool/[env]/JWTRefreshSecret --value [Secret] --type SecureString --overwrite`
+- ORCID Client Id: `aws ssm put-parameter --name /uc3/dmp/tool/[env]/OrcidClientId --value [MyClientId] --type String --overwrite`
+- ORCID Client Secret: `aws ssm put-parameter --name /uc3/dmp/tool/[env]/OrcidClientSecret --value [MyClientSecret] --type SecureString --overwrite`
 
 ### DMPHub client credentials
 

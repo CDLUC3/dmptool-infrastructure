@@ -83,6 +83,12 @@ parameters:
   DoNotReplyEmail: !ssm /uc3/dmp/tool/stg/DoNotReplyEmail
   HelpdeskEmail: !ssm /uc3/dmp/tool/stg/HelpdeskEmail
 
+  OrcidBaseURL: 'https://orcid.org'
+  OrcidAuthPath: '/oauth/token/'
+  OrcidAPIPath: '/v3.0/'
+  OrcidClientId: !ssm /uc3/dmp/tool/dev/OrcidClientId
+  OrcidClientSecret: !ssm /uc3/dmp/tool/dev/OrcidClientSecret
+
   UseMockData: 'false'
 
 hooks:

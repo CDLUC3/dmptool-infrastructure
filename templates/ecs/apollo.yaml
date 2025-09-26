@@ -217,6 +217,24 @@ Parameters:
   SesBouncedEmailBucket:
     Type: 'String'
 
+  OrcidBaseURL:
+    Type: 'String'
+    Default: 'https://pub.sandbox.orcid.org/'
+
+  OrcidAuthPath:
+    Type: 'String'
+    Default: '/oauth/token/'
+
+  OrcidAPIPath:
+    Type: 'String'
+    Default: '/v3.0/'
+
+  OrcidClientId:
+    Type: 'String'
+
+  OrcidClientSecret:
+    Type: 'String'
+
   DoNotReplyEmail:
     Type: 'String'
 
@@ -477,6 +495,17 @@ Resources:
               Value: !Ref DoNotReplyEmail
             - Name: 'HELPDESK_EMAIL_ADDRESS'
               Value: !Ref HelpdeskEmail
+
+            - Name: 'ORCID_BASE_URL'
+              Value: !Ref OrcidBaseURL
+            - Name: 'ORCID_AUTH_PATH'
+              Value: !Ref OrcidAuthPath
+            - Name: 'ORCID_API_PATH'
+              Value: !Ref OrcidAPIPath
+            - Name: 'ORCID_CLIENT_ID'
+              Value: !Ref OrcidClientId
+            - Name: 'ORCID_CLIENT_SECRET'
+              Value: !Ref OrcidClientSecret
 
             # Firelens sidecar won't redeploy unless this defintion changes
             # Change this value to force a redeploy of the firelens sidecar
