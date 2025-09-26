@@ -86,8 +86,8 @@ parameters:
   OrcidBaseURL: 'https://orcid.org'
   OrcidAuthPath: '/oauth/token/'
   OrcidAPIPath: '/v3.0/'
-  OrcidClientId: !ssm /uc3/dmp/tool/dev/OrcidClientId
-  OrcidClientSecret: !ssm /uc3/dmp/tool/dev/OrcidClientSecret
+  OrcidClientId: !ssm /uc3/dmp/tool/stg/OrcidClientId
+  OrcidClientSecret: !ssm /uc3/dmp/tool/stg/OrcidClientSecret
 
   UseMockData: 'false'
 
