@@ -6,6 +6,7 @@
 - Created stage environment (porting over initial files from dmsp_aws_prototype repo) 
 
 ### Updated
+- 2025-09-10 -- Bumped MySQL to v8.4.6
 
 ### Removed
 
